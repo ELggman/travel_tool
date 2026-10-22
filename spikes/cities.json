@@ -1,0 +1,20 @@
+{
+  "chongqing": {
+    "name": "重庆",
+    "pbf": "chongqing-latest.osm.pbf",
+    "bbox": [106.42, 29.49, 106.65, 29.63],
+    "pack": "chongqing-core-z15.pmtiles"
+  },
+  "wuhan": {
+    "name": "武汉",
+    "pbf": "hubei-latest.osm.pbf",
+    "bbox": [114.22, 30.47, 114.45, 30.65],
+    "pack": "wuhan-core-z15.pmtiles"
+  },
+  "guiyang": {
+    "name": "贵阳",
+    "pbf": "guizhou-latest.osm.pbf",
+    "bbox": [106.55, 26.30, 106.76, 26.66],
+    "pack": "guiyang-core-z15.pmtiles"
+  }
+}

@@ -1,0 +1,275 @@
+{
+  "city": "wuhan",
+  "generated_at": "2026-10-22T03:11:27.155Z",
+  "graphs": {
+    "walk": {
+      "nodes": 137222,
+      "edges": 305880,
+      "raw_nodes": 138732,
+      "raw_edges": 154316,
+      "places": 11
+    },
+    "car": {
+      "nodes": 97011,
+      "edges": 167408,
+      "raw_nodes": 97748,
+      "raw_edges": 107950,
+      "places": 11
+    }
+  },
+  "routes": [
+    {
+      "id": "wh-walk-01",
+      "mode": "walk",
+      "from": "黄鹤楼公园",
+      "to": "户部巷",
+      "fromKey": "huanghelou",
+      "toKey": "hubuxiang",
+      "ok": true,
+      "distanceM": 791,
+      "durationMin": 10.4,
+      "avgSpeedKmh": 4.5,
+      "nodes": 19,
+      "expanded": 91,
+      "ms": 0.5,
+      "fromSnapM": 6.9,
+      "toSnapM": 80.4,
+      "start": [
+        114.290231,
+        30.548329
+      ],
+      "end": [
+        114.292301,
+        30.549109
+      ]
+    },
+    {
+      "id": "wh-walk-02",
+      "mode": "walk",
+      "from": "江汉路",
+      "to": "武汉关码头",
+      "fromKey": "jianghanlu",
+      "toKey": "wuhanguan",
+      "ok": true,
+      "distanceM": 1126,
+      "durationMin": 14.3,
+      "avgSpeedKmh": 4.7,
+      "nodes": 41,
+      "expanded": 252,
+      "ms": 0.7,
+      "fromSnapM": 26.2,
+      "toSnapM": 54,
+      "start": [
+        114.285782,
+        30.582624
+      ],
+      "end": [
+        114.292525,
+        30.577289
+      ]
+    },
+    {
+      "id": "wh-walk-03",
+      "mode": "walk",
+      "from": "武汉大学科技门",
+      "to": "东湖听涛",
+      "fromKey": "wuda",
+      "toKey": "tingtao",
+      "ok": true,
+      "distanceM": 5414,
+      "durationMin": 70.6,
+      "avgSpeedKmh": 4.6,
+      "nodes": 338,
+      "expanded": 17912,
+      "ms": 9.9,
+      "fromSnapM": 0,
+      "toSnapM": 19.2,
+      "start": [
+        114.355103,
+        30.534386
+      ],
+      "end": [
+        114.366558,
+        30.565036
+      ]
+    },
+    {
+      "id": "wh-walk-04",
+      "mode": "walk",
+      "from": "楚河汉街",
+      "to": "武汉大学科技门",
+      "fromKey": "chuhe",
+      "toKey": "wuda",
+      "ok": true,
+      "distanceM": 4114,
+      "durationMin": 53.4,
+      "avgSpeedKmh": 4.6,
+      "nodes": 138,
+      "expanded": 7806,
+      "ms": 2.4,
+      "fromSnapM": 15.7,
+      "toSnapM": 0,
+      "start": [
+        114.335079,
+        30.559098
+      ],
+      "end": [
+        114.355103,
+        30.534386
+      ]
+    },
+    {
+      "id": "wh-taxi-05",
+      "mode": "car",
+      "from": "武昌站",
+      "to": "汉口火车站",
+      "fromKey": "wuchang",
+      "toKey": "hankou",
+      "ok": true,
+      "distanceM": 14562,
+      "durationMin": 23.3,
+      "avgSpeedKmh": 37.5,
+      "nodes": 274,
+      "expanded": 35497,
+      "ms": 16.6,
+      "fromSnapM": 26.6,
+      "toSnapM": 4.6,
+      "start": [
+        114.313958,
+        30.531481
+      ],
+      "end": [
+        114.249616,
+        30.618301
+      ]
+    },
+    {
+      "id": "wh-taxi-06",
+      "mode": "car",
+      "from": "黄鹤楼公园",
+      "to": "江汉路",
+      "fromKey": "huanghelou",
+      "toKey": "jianghanlu",
+      "ok": true,
+      "distanceM": 7916,
+      "durationMin": 14,
+      "avgSpeedKmh": 34,
+      "nodes": 142,
+      "expanded": 5104,
+      "ms": 1.4,
+      "fromSnapM": 15.5,
+      "toSnapM": 26.2,
+      "start": [
+        114.290141,
+        30.548302
+      ],
+      "end": [
+        114.285782,
+        30.582624
+      ]
+    },
+    {
+      "id": "wh-taxi-07",
+      "mode": "car",
+      "from": "光谷广场",
+      "to": "武汉大学科技门",
+      "fromKey": "guanggu",
+      "toKey": "wuda",
+      "ok": true,
+      "distanceM": 6833,
+      "durationMin": 13.9,
+      "avgSpeedKmh": 29.5,
+      "nodes": 218,
+      "expanded": 14576,
+      "ms": 6.2,
+      "fromSnapM": 46.3,
+      "toSnapM": 0,
+      "start": [
+        114.393496,
+        30.505998
+      ],
+      "end": [
+        114.355103,
+        30.534386
+      ]
+    },
+    {
+      "id": "wh-taxi-08",
+      "mode": "car",
+      "from": "汉口火车站",
+      "to": "江汉路",
+      "fromKey": "hankou",
+      "toKey": "jianghanlu",
+      "ok": true,
+      "distanceM": 6961,
+      "durationMin": 15.1,
+      "avgSpeedKmh": 27.7,
+      "nodes": 158,
+      "expanded": 9480,
+      "ms": 2.4,
+      "fromSnapM": 4.6,
+      "toSnapM": 26.2,
+      "start": [
+        114.249616,
+        30.618301
+      ],
+      "end": [
+        114.285782,
+        30.582624
+      ]
+    },
+    {
+      "id": "wh-walk-09",
+      "mode": "walk",
+      "from": "武汉关码头",
+      "to": "江汉路",
+      "fromKey": "wuhanguan",
+      "toKey": "jianghanlu",
+      "ok": true,
+      "distanceM": 1126,
+      "durationMin": 14.3,
+      "avgSpeedKmh": 4.7,
+      "nodes": 41,
+      "expanded": 259,
+      "ms": 0.2,
+      "fromSnapM": 54,
+      "toSnapM": 26.2,
+      "start": [
+        114.292525,
+        30.577289
+      ],
+      "end": [
+        114.285782,
+        30.582624
+      ]
+    },
+    {
+      "id": "wh-taxi-10",
+      "mode": "car",
+      "from": "长江大桥汉阳桥头",
+      "to": "黄鹤楼公园",
+      "fromKey": "yangtze",
+      "toKey": "huanghelou",
+      "ok": true,
+      "distanceM": 7677,
+      "durationMin": 12.1,
+      "avgSpeedKmh": 38.2,
+      "nodes": 199,
+      "expanded": 6764,
+      "ms": 1.7,
+      "fromSnapM": 10.2,
+      "toSnapM": 15.5,
+      "start": [
+        114.272653,
+        30.557014
+      ],
+      "end": [
+        114.290141,
+        30.548302
+      ]
+    }
+  ],
+  "totalMs": 43.7,
+  "okCount": 10,
+  "failCount": 0
+}

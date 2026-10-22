@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-22T11:17:02+0800",
+  "attribution": "© OpenStreetMap contributors · Protomaps · ODbL",
+  "cities": [
+    {
+      "id": "chongqing",
+      "name": "重庆",
+      "bbox": [
+        106.42,
+        29.49,
+        106.65,
+        29.63
+      ],
+      "packFile": "chongqing-core-z15.pmtiles",
+      "downloadPath": "packs/chongqing/chongqing-core-z15.pmtiles",
+      "sizeBytes": 6360683,
+      "sha256": "665262cea7e1d994434266d7157edfba4bfa5cef6db2027fc3d20277afe34b47",
+      "graphs": {
+        "walk": {
+          "file": "chongqing-walk.json",
+          "sizeBytes": 6629786
+        },
+        "car": {
+          "file": "chongqing-car.json",
+          "sizeBytes": 4643356
+        }
+      }
+    },
+    {
+      "id": "wuhan",
+      "name": "武汉",
+      "bbox": [
+        114.22,
+        30.47,
+        114.45,
+        30.65
+      ],
+      "packFile": "wuhan-core-z15.pmtiles",
+      "downloadPath": "packs/wuhan/wuhan-core-z15.pmtiles",
+      "sizeBytes": 7252164,
+      "sha256": "8de7c9a5225f74e168ed2ab90828f3be2fd5bf1f2d05730685b7e1795f5513e4",
+      "graphs": {
+        "walk": {
+          "file": "wuhan-walk.json",
+          "sizeBytes": 8715226
+        },
+        "car": {
+          "file": "wuhan-car.json",
+          "sizeBytes": 5237242
+        }
+      }
+    },
+    {
+      "id": "guiyang",
+      "name": "贵阳",
+      "bbox": [
+        106.55,
+        26.3,
+        106.76,
+        26.66
+      ],
+      "packFile": "guiyang-core-z15.pmtiles",
+      "downloadPath": "packs/guiyang/guiyang-core-z15.pmtiles",
+      "sizeBytes": 3652896,
+      "sha256": "423974abfd37d898fa6e233deeabeee6cfcd700759870416de4d74e62c32f6ff",
+      "graphs": {
+        "walk": {
+          "file": "guiyang-walk.json",
+          "sizeBytes": 3317219
+        },
+        "car": {
+          "file": "guiyang-car.json",
+          "sizeBytes": 3145585
+        }
+      }
+    }
+  ]
+}

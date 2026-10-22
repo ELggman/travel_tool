@@ -1,0 +1,265 @@
+{
+  "city": "guiyang",
+  "rows": [
+    {
+      "id": "gy-walk-01",
+      "mode": "walk",
+      "from": "甲秀楼",
+      "to": "文昌阁",
+      "ok": true,
+      "distanceM": 1423,
+      "durationMin": 18.6,
+      "avgSpeedKmh": 4.6,
+      "nodes": 36,
+      "expanded": 153,
+      "ms": 0.5,
+      "fromSnapM": 10.9,
+      "toSnapM": 22.4,
+      "start": [
+        106.71598,
+        26.575022
+      ],
+      "end": [
+        106.71578,
+        26.582123
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 1440,
+      "osrmDurationMin": 19.4
+    },
+    {
+      "id": "gy-walk-02",
+      "mode": "walk",
+      "from": "文昌阁",
+      "to": "喷水池",
+      "ok": true,
+      "distanceM": 1518,
+      "durationMin": 19.6,
+      "avgSpeedKmh": 4.6,
+      "nodes": 26,
+      "expanded": 347,
+      "ms": 0.5,
+      "fromSnapM": 22.4,
+      "toSnapM": 6,
+      "start": [
+        106.71578,
+        26.582123
+      ],
+      "end": [
+        106.706617,
+        26.587156
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 1675,
+      "osrmDurationMin": 22.4
+    },
+    {
+      "id": "gy-walk-03",
+      "mode": "walk",
+      "from": "喷水池",
+      "to": "花果园湿地公园",
+      "ok": true,
+      "distanceM": 3450,
+      "durationMin": 44.8,
+      "avgSpeedKmh": 4.6,
+      "nodes": 71,
+      "expanded": 1208,
+      "ms": 1,
+      "fromSnapM": 6,
+      "toSnapM": 0,
+      "start": [
+        106.706617,
+        26.587156
+      ],
+      "end": [
+        106.682961,
+        26.570653
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 3448,
+      "osrmDurationMin": 46.2
+    },
+    {
+      "id": "gy-walk-04",
+      "mode": "walk",
+      "from": "黔灵山公园",
+      "to": "喷水池",
+      "ok": true,
+      "distanceM": 1637,
+      "durationMin": 21,
+      "avgSpeedKmh": 4.7,
+      "nodes": 45,
+      "expanded": 260,
+      "ms": 0.3,
+      "fromSnapM": 33.5,
+      "toSnapM": 6,
+      "start": [
+        106.693433,
+        26.590893
+      ],
+      "end": [
+        106.706617,
+        26.587156
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 1637,
+      "osrmDurationMin": 22.0
+    },
+    {
+      "id": "gy-walk-05",
+      "mode": "walk",
+      "from": "花果园湿地公园",
+      "to": "甲秀楼",
+      "ok": true,
+      "distanceM": 4228,
+      "durationMin": 55.2,
+      "avgSpeedKmh": 4.6,
+      "nodes": 84,
+      "expanded": 1880,
+      "ms": 1.3,
+      "fromSnapM": 0,
+      "toSnapM": 10.9,
+      "start": [
+        106.682961,
+        26.570653
+      ],
+      "end": [
+        106.71598,
+        26.575022
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 4238,
+      "osrmDurationMin": 56.5
+    },
+    {
+      "id": "gy-taxi-06",
+      "mode": "car",
+      "from": "喷水池",
+      "to": "观山湖公园",
+      "ok": true,
+      "distanceM": 13203,
+      "durationMin": 18.7,
+      "avgSpeedKmh": 42.4,
+      "nodes": 158,
+      "expanded": 14011,
+      "ms": 13.8,
+      "fromSnapM": 6,
+      "toSnapM": 12.4,
+      "start": [
+        106.706617,
+        26.587156
+      ],
+      "end": [
+        106.627974,
+        26.648663
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 14566,
+      "osrmDurationMin": 14.0
+    },
+    {
+      "id": "gy-taxi-07",
+      "mode": "car",
+      "from": "花果园湿地公园",
+      "to": "观山湖公园",
+      "ok": true,
+      "distanceM": 14398,
+      "durationMin": 22,
+      "avgSpeedKmh": 39.3,
+      "nodes": 229,
+      "expanded": 14145,
+      "ms": 4.1,
+      "fromSnapM": 0,
+      "toSnapM": 12.4,
+      "start": [
+        106.682961,
+        26.570653
+      ],
+      "end": [
+        106.627974,
+        26.648663
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 15024,
+      "osrmDurationMin": 16.0
+    },
+    {
+      "id": "gy-taxi-08",
+      "mode": "car",
+      "from": "贵阳北站",
+      "to": "喷水池",
+      "ok": true,
+      "distanceM": 8559,
+      "durationMin": 12.8,
+      "avgSpeedKmh": 40.1,
+      "nodes": 126,
+      "expanded": 4270,
+      "ms": 0.9,
+      "fromSnapM": 220.4,
+      "toSnapM": 6,
+      "start": [
+        106.670329,
+        26.622092
+      ],
+      "end": [
+        106.706617,
+        26.587156
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 8548,
+      "osrmDurationMin": 9.3
+    },
+    {
+      "id": "gy-taxi-09",
+      "mode": "car",
+      "from": "喷水池",
+      "to": "青岩古镇",
+      "ok": true,
+      "distanceM": 30603,
+      "durationMin": 47.1,
+      "avgSpeedKmh": 39,
+      "nodes": 346,
+      "expanded": 43380,
+      "ms": 14.7,
+      "fromSnapM": 6,
+      "toSnapM": 70.9,
+      "start": [
+        106.706617,
+        26.587156
+      ],
+      "end": [
+        106.681496,
+        26.33425
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 30514,
+      "osrmDurationMin": 25.9
+    },
+    {
+      "id": "gy-taxi-10",
+      "mode": "car",
+      "from": "青岩古镇",
+      "to": "贵阳北站",
+      "ok": true,
+      "distanceM": 34855,
+      "durationMin": 52.9,
+      "avgSpeedKmh": 39.5,
+      "nodes": 303,
+      "expanded": 23460,
+      "ms": 5.9,
+      "fromSnapM": 70.9,
+      "toSnapM": 220.4,
+      "start": [
+        106.681496,
+        26.33425
+      ],
+      "end": [
+        106.670329,
+        26.622092
+      ],
+      "osrm_ok": true,
+      "osrmDistanceM": 34751,
+      "osrmDurationMin": 29.5
+    }
+  ]
+}

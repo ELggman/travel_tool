@@ -1,0 +1,275 @@
+{
+  "city": "chongqing",
+  "generated_at": "2026-10-22T03:11:26.952Z",
+  "graphs": {
+    "walk": {
+      "nodes": 105522,
+      "edges": 230544,
+      "raw_nodes": 107444,
+      "raw_edges": 117062,
+      "places": 11
+    },
+    "car": {
+      "nodes": 91676,
+      "edges": 140224,
+      "raw_nodes": 92397,
+      "raw_edges": 99809,
+      "places": 11
+    }
+  },
+  "routes": [
+    {
+      "id": "cq-walk-01",
+      "mode": "walk",
+      "from": "解放碑",
+      "to": "洪崖洞",
+      "fromKey": "jiefangbei",
+      "toKey": "hongyadong",
+      "ok": true,
+      "distanceM": 938,
+      "durationMin": 13.2,
+      "avgSpeedKmh": 4.2,
+      "nodes": 57,
+      "expanded": 486,
+      "ms": 1.1,
+      "fromSnapM": 29.3,
+      "toSnapM": 0,
+      "start": [
+        106.573545,
+        29.560321
+      ],
+      "end": [
+        106.57314,
+        29.564855
+      ]
+    },
+    {
+      "id": "cq-walk-02",
+      "mode": "walk",
+      "from": "十八梯",
+      "to": "解放碑",
+      "fromKey": "shibati",
+      "toKey": "jiefangbei",
+      "ok": true,
+      "distanceM": 1015,
+      "durationMin": 14.4,
+      "avgSpeedKmh": 4.2,
+      "nodes": 49,
+      "expanded": 280,
+      "ms": 1.2,
+      "fromSnapM": 9.7,
+      "toSnapM": 29.3,
+      "start": [
+        106.569307,
+        29.55388
+      ],
+      "end": [
+        106.573545,
+        29.560321
+      ]
+    },
+    {
+      "id": "cq-walk-03",
+      "mode": "walk",
+      "from": "李子坝",
+      "to": "佛图关",
+      "fromKey": "liziba",
+      "toKey": "fotuguan",
+      "ok": true,
+      "distanceM": 3086,
+      "durationMin": 40.5,
+      "avgSpeedKmh": 4.6,
+      "nodes": 142,
+      "expanded": 1480,
+      "ms": 10.7,
+      "fromSnapM": 16.9,
+      "toSnapM": 8,
+      "start": [
+        106.534539,
+        29.556776
+      ],
+      "end": [
+        106.525876,
+        29.550374
+      ]
+    },
+    {
+      "id": "cq-taxi-04",
+      "mode": "car",
+      "from": "解放碑",
+      "to": "南滨路钟楼",
+      "fromKey": "jiefangbei",
+      "toKey": "nanbin",
+      "ok": true,
+      "distanceM": 5772,
+      "durationMin": 11.9,
+      "avgSpeedKmh": 29,
+      "nodes": 163,
+      "expanded": 5878,
+      "ms": 4.7,
+      "fromSnapM": 12.1,
+      "toSnapM": 0,
+      "start": [
+        106.573488,
+        29.560135
+      ],
+      "end": [
+        106.588631,
+        29.574276
+      ]
+    },
+    {
+      "id": "cq-taxi-05",
+      "mode": "car",
+      "from": "观音桥",
+      "to": "解放碑",
+      "fromKey": "guanyinqiao",
+      "toKey": "jiefangbei",
+      "ok": true,
+      "distanceM": 7552,
+      "durationMin": 15.1,
+      "avgSpeedKmh": 30,
+      "nodes": 187,
+      "expanded": 19873,
+      "ms": 9,
+      "fromSnapM": 137.1,
+      "toSnapM": 12.1,
+      "start": [
+        106.529523,
+        29.575018
+      ],
+      "end": [
+        106.573488,
+        29.560135
+      ]
+    },
+    {
+      "id": "cq-taxi-06",
+      "mode": "car",
+      "from": "磁器口",
+      "to": "李子坝",
+      "fromKey": "ciqikou",
+      "toKey": "liziba",
+      "ok": true,
+      "distanceM": 14199,
+      "durationMin": 24.5,
+      "avgSpeedKmh": 34.7,
+      "nodes": 170,
+      "expanded": 14819,
+      "ms": 3.7,
+      "fromSnapM": 11.5,
+      "toSnapM": 26.5,
+      "start": [
+        106.445996,
+        29.582776
+      ],
+      "end": [
+        106.534412,
+        29.556911
+      ]
+    },
+    {
+      "id": "cq-walk-07",
+      "mode": "walk",
+      "from": "朝天门",
+      "to": "解放碑",
+      "fromKey": "chaotianmen",
+      "toKey": "jiefangbei",
+      "ok": true,
+      "distanceM": 1742,
+      "durationMin": 23.3,
+      "avgSpeedKmh": 4.5,
+      "nodes": 72,
+      "expanded": 683,
+      "ms": 0.3,
+      "fromSnapM": 16.7,
+      "toSnapM": 29.3,
+      "start": [
+        106.584401,
+        29.57065
+      ],
+      "end": [
+        106.573545,
+        29.560321
+      ]
+    },
+    {
+      "id": "cq-walk-08",
+      "mode": "walk",
+      "from": "来福士",
+      "to": "洪崖洞",
+      "fromKey": "raffles",
+      "toKey": "hongyadong",
+      "ok": true,
+      "distanceM": 1257,
+      "durationMin": 16.4,
+      "avgSpeedKmh": 4.6,
+      "nodes": 51,
+      "expanded": 468,
+      "ms": 0.2,
+      "fromSnapM": 14,
+      "toSnapM": 0,
+      "start": [
+        106.583105,
+        29.567481
+      ],
+      "end": [
+        106.57314,
+        29.564855
+      ]
+    },
+    {
+      "id": "cq-taxi-09",
+      "mode": "car",
+      "from": "长江索道北站",
+      "to": "南滨路钟楼",
+      "fromKey": "cablecar",
+      "toKey": "nanbin",
+      "ok": true,
+      "distanceM": 5003,
+      "durationMin": 9.6,
+      "avgSpeedKmh": 31.3,
+      "nodes": 144,
+      "expanded": 6278,
+      "ms": 1.5,
+      "fromSnapM": 56,
+      "toSnapM": 0,
+      "start": [
+        106.578938,
+        29.561107
+      ],
+      "end": [
+        106.588631,
+        29.574276
+      ]
+    },
+    {
+      "id": "cq-taxi-10",
+      "mode": "car",
+      "from": "磁器口",
+      "to": "朝天门",
+      "fromKey": "ciqikou",
+      "toKey": "chaotianmen",
+      "ok": true,
+      "distanceM": 22401,
+      "durationMin": 38.4,
+      "avgSpeedKmh": 35,
+      "nodes": 437,
+      "expanded": 65065,
+      "ms": 18.8,
+      "fromSnapM": 11.5,
+      "toSnapM": 16.7,
+      "start": [
+        106.445996,
+        29.582776
+      ],
+      "end": [
+        106.584401,
+        29.57065
+      ]
+    }
+  ],
+  "totalMs": 55.5,
+  "okCount": 10,
+  "failCount": 0
+}

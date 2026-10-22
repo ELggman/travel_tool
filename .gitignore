@@ -47,6 +47,11 @@ ios/App/DerivedData/
 # Map data / offline packs / routing graphs
 map-packs/
 graph-cache/
+spikes/data/
+spikes/map/
+spikes/web/data/graphs/
+tools/
+.venv-spike/
 *.pmtiles
 *.mbtiles
 *.osm.pbf

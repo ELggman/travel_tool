@@ -44,7 +44,7 @@ python3 -m http.server 8080
 
 目标栈：Vite + TypeScript + React / MapLibre / dnd-kit / SQLite / Capacitor；离线路由优先评估「城市路网 + TS A*」，备选 GraphHopper（Android）/ Valhalla（跨端）。
 
-三城数据、路线、包体积的验收门槛见 [docs/SPIKE-CITIES.md](docs/SPIKE-CITIES.md)；详细路线图、数据模型、风险与决策状态见 [docs/PLAN.md](docs/PLAN.md)。
+三城第一轮验证已完成（2026-10-22）：30/30 路线可计算，28/30 与 OSRM 距离误差 ≤10%，断外网可加载与重算；条件通过，继续开源栈 A。结果、截图与限制见 [三城报告](docs/spikes/city-map-report.md)，验收方法见 [docs/SPIKE-CITIES.md](docs/SPIKE-CITIES.md)。
 
 ### 还未确认
 

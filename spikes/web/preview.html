@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>沿路 · 三城离线地图与本地路由验证</title>
+<link rel="stylesheet" href="vendor/maplibre-gl.css" />
+<style>
+  :root {
+    --paper:#F3EEE2; --paper2:#FAF6EC; --ink:#1E2822; --muted:#7C7968;
+    --line:rgba(243,238,226,.15); --coral:#CE4B2B; --moss:#44583F;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; font-family:"PingFang SC","Helvetica Neue",Arial,sans-serif; background:var(--paper); color:var(--ink); }
+  body { display:flex; overflow:hidden; }
+  .panel {
+    width:352px; flex:none; height:100%; overflow:auto; background:var(--ink); color:var(--paper);
+    padding:24px 22px 20px; position:relative; z-index:3; box-shadow:10px 0 30px -18px rgba(0,0,0,.4);
+  }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .brand .mark { width:28px; height:28px; border-radius:9px; background:var(--coral); display:grid; place-items:center; }
+  .brand .mark svg { width:17px; height:17px; }
+  .brand .cn { font-family:"Songti SC","Iowan Old Style",serif; font-size:17px; letter-spacing:.12em; }
+  .brand .en { display:block; font-size:6.5px; letter-spacing:.3em; color:#9A9C8D; margin-top:2px; }
+  .eyebrow { font-size:8px; letter-spacing:.2em; color:var(--coral); text-transform:uppercase; margin-bottom:8px; }
+  h1 { margin:0 0 8px; font-family:"Songti SC","Iowan Old Style",serif; font-size:22px; font-weight:500; line-height:1.35; letter-spacing:.02em; }
+  .sub { margin:0 0 18px; font-size:10px; line-height:1.7; color:#A8AC9D; }
+  .city-tabs { display:flex; gap:6px; margin-bottom:18px; }
+  .city-tabs button {
+    flex:1; border:1px solid rgba(243,238,226,.18); background:transparent; color:#B7BAAA;
+    border-radius:999px; padding:7px 0; font-size:9px; letter-spacing:.08em; cursor:pointer;
+  }
+  .city-tabs button.active { background:var(--paper); color:var(--ink); border-color:var(--paper); }
+  .section-label { display:flex; justify-content:space-between; align-items:baseline; margin:0 0 8px; font-size:8px; letter-spacing:.16em; color:#8D9285; text-transform:uppercase; }
+  .section-label b { font-weight:400; color:#C7C9BD; letter-spacing:.06em; }
+  .route-list { display:flex; flex-direction:column; gap:5px; margin-bottom:18px; }
+  .route {
+    display:flex; align-items:center; gap:9px; width:100%; text-align:left; border:1px solid transparent;
+    background:rgba(255,255,255,.035); color:#D9DCCE; border-radius:10px; padding:8px 9px; cursor:pointer;
+    transition:background .15s, border-color .15s;
+  }
+  .route:hover { background:rgba(255,255,255,.08); }
+  .route.active { background:rgba(206,75,43,.16); border-color:rgba(206,75,43,.55); color:#FFF7EC; }
+  .route .m {
+    width:30px; flex:none; font-size:7px; letter-spacing:.08em; color:#A4A898; text-transform:uppercase;
+  }
+  .route.active .m { color:#EFA18A; }
+  .route .main { min-width:0; flex:1; }
+  .route .n { display:block; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .route .d { display:block; font-size:8px; color:#8E9385; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .route.active .d { color:#C9B6A9; }
+  .route .arrow { color:#787F71; font-size:10px; }
+  .actions { display:flex; flex-direction:column; gap:7px; margin:0 0 16px; }
+  .actions button {
+    border:1px solid rgba(243,238,226,.25); background:rgba(255,255,255,.04); color:#EDEADD;
+    border-radius:9px; padding:8px 10px; font-size:9px; letter-spacing:.05em; cursor:pointer;
+    text-align:left; transition:background .15s, border-color .15s;
+  }
+  .actions button:hover { background:rgba(255,255,255,.09); border-color:rgba(243,238,226,.45); }
+  .actions button:disabled { opacity:.55; cursor:wait; }
+  .actions .status { font-size:8px; color:#8B9182; min-height:11px; }
+  .hud .browser { margin-top:6px; font-size:8px; color:#A34B32; background:#F8E9DC; border-radius:5px; padding:4px 6px; }
+  .stats { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:12px 0; margin-bottom:14px; }
+  .stat { display:flex; justify-content:space-between; gap:12px; font-size:9px; padding:3px 0; color:#9EA394; }
+  .stat b { font-weight:500; color:#E4E3D7; font-variant-numeric:tabular-nums; }
+  .note { font-size:8px; line-height:1.7; color:#7D8476; }
+  .note strong { color:#B9BDAE; font-weight:500; }
+  .map-wrap { flex:1; position:relative; min-width:0; }
+  #map { position:absolute; inset:0; background:#EDE7D8; }
+  .map-top {
+    position:absolute; top:20px; left:22px; right:22px; z-index:2; display:flex; justify-content:space-between; gap:18px;
+    pointer-events:none;
+  }
+  .hud {
+    background:rgba(250,247,238,.92); backdrop-filter:blur(12px); border:1px solid rgba(30,40,34,.12);
+    border-radius:14px; padding:11px 14px; max-width:470px; box-shadow:0 12px 28px -18px rgba(30,40,34,.45);
+    pointer-events:auto;
+  }
+  .hud .kicker { font-size:7.5px; letter-spacing:.16em; color:#9A9583; text-transform:uppercase; display:flex; align-items:center; gap:7px; }
+  .hud .kicker .dot { width:5px; height:5px; border-radius:50%; background:var(--coral); }
+  .hud h2 { margin:3px 0 3px; font-family:"Songti SC","Iowan Old Style",serif; font-size:17px; font-weight:600; letter-spacing:.02em; }
+  .hud .meta { display:flex; gap:8px; align-items:center; font-size:9px; color:#716F60; font-variant-numeric:tabular-nums; flex-wrap:wrap; }
+  .hud .chip { padding:3px 7px; border-radius:999px; background:#F3E5D8; color:#A24B31; font-size:8px; letter-spacing:.04em; }
+  .hud .chip.car { background:#E4E9DE; color:#4C6145; }
+  .hud .osrm { margin-top:7px; padding-top:7px; border-top:1px solid #E6DECB; font-size:8px; color:#8E8A78; }
+  .hud .osrm b { color:#4D5144; font-weight:500; }
+  .offline-badge {
+    align-self:flex-start; display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:999px;
+    background:rgba(30,40,34,.93); color:#F4EFE2; font-size:8px; letter-spacing:.08em; white-space:nowrap;
+    box-shadow:0 10px 22px -14px rgba(0,0,0,.5);
+  }
+  .offline-badge .dot { width:5px; height:5px; border-radius:50%; background:#8DB67B; }
+  .attrs {
+    position:absolute; left:22px; bottom:14px; z-index:2; font-size:7.5px; color:#6F7568;
+    background:rgba(250,247,238,.75); padding:4px 7px; border-radius:5px;
+  }
+  .attrs a { color:inherit; }
+  .maplibregl-ctrl-attrib { display:none !important; }
+  .marker { display:flex; align-items:center; gap:6px; pointer-events:none; }
+  .marker .pin { width:11px; height:11px; border-radius:50%; border:2px solid #F8F3E6; box-shadow:0 2px 6px rgba(0,0,0,.25); }
+  .marker.start .pin { background:var(--coral); }
+  .marker.end .pin { background:var(--ink); }
+  .marker .lab { font-size:8px; color:#2F372D; background:rgba(250,247,238,.9); padding:2px 5px; border-radius:4px; white-space:nowrap; }
+  .marker.start .lab { color:#A0442A; }
+  .loading { position:absolute; inset:0; display:grid; place-items:center; background:#EDE7D8; z-index:5; font-size:9px; letter-spacing:.16em; color:#888573; }
+  .loading.hidden { display:none; }
+  @media (max-width: 900px) {
+    body { flex-direction:column; overflow:auto; }
+    .panel { width:100%; height:auto; max-height:none; }
+    .map-wrap { height:65vh; min-height:480px; width:100%; }
+  }
+</style>
+</head>
+<body>
+<aside class="panel">
+  <div class="brand">
+    <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#FFF8ED" stroke-width="1.7" stroke-linecap="round"><path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10"/><circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none"/></svg></span>
+    <span><span class="cn">沿路</span><span class="en">YANLU · ROUTING SPIKE</span></span>
+  </div>
+  <div class="eyebrow">Spike 01 · China map / local routing</div>
+  <h1>离线地图与<br />本地路线验证</h1>
+  <p class="sub">Protomaps PMTiles 城市包 + OSM 路网 + 本地 A*。地图与路线均来自本机，不依赖在线地图服务。</p>
+  <div class="city-tabs" id="cities"></div>
+
+  <div class="section-label"><span>Sample routes</span><b id="routeCount"></b></div>
+  <div class="route-list" id="routes"></div>
+
+  <div class="actions">
+    <button id="recompute" type="button">在浏览器本地重算这条路线 →</button>
+    <span class="status" id="browserStatus">预计算用于列表；点击后在图数据上实算。</span>
+  </div>
+
+  <div class="section-label"><span>Local graph</span><b id="cityLabel"></b></div>
+  <div class="stats" id="stats"></div>
+  <div class="note" id="methodNote">
+    <strong>方法：</strong>Geofabrik 省级 OSM → 裁剪城市核心区 → Geofabrik/Overpass 路网 + Protomaps 底图；本地 A* 计算步行/打车路线；OSRM 仅作对照基线，不进入 App。
+  </div>
+</aside>
+
+<div class="map-wrap">
+  <div id="map"></div>
+  <div class="loading" id="loading">LOADING LOCAL MAP PACK</div>
+  <div class="map-top">
+    <div class="hud" id="hud"></div>
+    <div class="offline-badge"><span class="dot"></span> OFFLINE PACK · LOCAL ROUTE</div>
+  </div>
+  <div class="attrs">© OpenStreetMap contributors · Protomaps · local PMTiles · OSRM baseline only</div>
+</div>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script>
+(async function () {
+  const params = new URLSearchParams(location.search);
+  const city = params.get("city") || "chongqing";
+  const requestedRoute = params.get("route");
+  const data = await (await fetch(`data/${city}.json`)).json();
+  const routes = data.summary.routes.filter(r => r.ok);
+  const byId = Object.fromEntries(routes.map(r => [r.id, r]));
+  const features = Object.fromEntries(data.geojson.features.map(f => [f.properties.id, f]));
+  const cityNames = { chongqing: "重庆", wuhan: "武汉", guiyang: "贵阳" };
+  const packId = data.pack.replace(/\.pmtiles$/, "");
+
+  document.getElementById("cities").innerHTML = Object.entries(cityNames).map(([k, n]) =>
+    `<button class="${k === city ? "active" : ""}" data-city="${k}">${n}</button>`).join("");
+  document.querySelectorAll("[data-city]").forEach(b => b.addEventListener("click", () => {
+    location.search = `?city=${b.dataset.city}`;
+  }));
+
+  document.getElementById("cityLabel").textContent = data.name;
+  document.getElementById("routeCount").textContent = `${routes.length} / ${data.summary.routes.length}`;
+  const graph = data.summary.graphs;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><span>步行图</span><b>${fmtNum(graph.walk.edges)} edges</b></div>
+    <div class="stat"><span>打车图</span><b>${fmtNum(graph.car.edges)} edges</b></div>
+    <div class="stat"><span>离线包</span><b>${data.pack.replace(".pmtiles", "")}</b></div>
+    <div class="stat"><span>本地算路</span><b>${data.summary.totalMs} ms total</b></div>
+    <div class="stat"><span>样本通过</span><b>${data.summary.okCount} / ${data.summary.routes.length}</b></div>`;
+
+  document.getElementById("routes").innerHTML = routes.map(r => `
+    <button class="route" data-route="${r.id}">
+      <span class="m">${r.mode === "walk" ? "WALK" : "TAXI"}</span>
+      <span class="main"><span class="n">${esc(r.from)} → ${esc(r.to)}</span>
+      <span class="d">${(r.distanceM/1000).toFixed(1)} km · ${r.durationMin} min · local ${r.ms} ms</span></span>
+      <span class="arrow">↗</span>
+    </button>`).join("");
+
+  const map = new maplibregl.Map({
+    container: "map",
+    style: {
+      version: 8,
+      sources: {
+        base: {
+          type: "vector",
+          tiles: [`http://127.0.0.1:8090/${packId}/{z}/{x}/{y}.mvt`],
+          minzoom: 0,
+          maxzoom: 15,
+          attribution: "© OpenStreetMap contributors · Protomaps"
+        },
+        route: { type: "geojson", data: { type: "FeatureCollection", features: [] } }
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#EDE7D8" } },
+        { id: "earth", type: "fill", source: "base", "source-layer": "earth", paint: { "fill-color": "#F3EEDF" } },
+        { id: "water", type: "fill", source: "base", "source-layer": "water", paint: { "fill-color": "#B9D5D1" } },
+        { id: "landuse", type: "fill", source: "base", "source-layer": "landuse", paint: {
+          "fill-color": ["match", ["get", "kind"],
+            "park", "#CBD8B5", "grass", "#CBD8B5", "forest", "#C6D3AE",
+            "pedestrian", "#EAE2D0", "residential", "#EFE9DB", "commercial", "#EDE5D4",
+            "pitch", "#D9D2BE", "#EDE7D8"],
+          "fill-opacity": .92
+        } },
+        { id: "buildings", type: "fill", source: "base", "source-layer": "buildings", minzoom: 13,
+          paint: { "fill-color": "#E4DCC9", "fill-outline-color": "#D8CFBA", "fill-opacity": .72 } },
+        { id: "roads-casing", type: "line", source: "base", "source-layer": "roads",
+          paint: { "line-color": "#DCD4C1", "line-width": ["interpolate", ["linear"], ["zoom"], 10, .8, 13, 2, 15, 6, 17, 11], "line-opacity": .8 } },
+        { id: "roads", type: "line", source: "base", "source-layer": "roads",
+          paint: { "line-color": "#FBF7EC", "line-width": ["interpolate", ["linear"], ["zoom"], 10, .45, 13, 1.2, 15, 4.2, 17, 8] } },
+        { id: "boundaries", type: "line", source: "base", "source-layer": "boundaries",
+          paint: { "line-color": "#A9A38F", "line-width": .7, "line-dasharray": [3, 4], "line-opacity": .5 } },
+        { id: "route-halo", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#FFF9EE", "line-width": 7, "line-opacity": .92 } },
+        { id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#CE4B2B", "line-width": 3.8 } }
+      ]
+    },
+    center: data.center,
+    zoom: data.zoom,
+    attributionControl: false
+  });
+  window.__map = map;
+  window.__errors = [];
+  map.on("error", e => {
+    const msg = (e && e.error && e.error.message) || String(e && e.error) || "unknown map error";
+    window.__errors.push(msg);
+    console.error("MAP ERROR:", msg);
+  });
+  map.on("style.load", () => console.log("style.load"));
+  map.on("sourcedata", e => { if (e.sourceId === "base") console.log("base sourcedata", e.isSourceLoaded); });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+  // Scale control intentionally omitted: the custom attribution owns the bottom-left corner.
+
+  const markers = [];
+  const graphCache = {};
+  let active = null;
+  let browserInfo = null;
+
+  function hav(lon1, lat1, lon2, lat2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const p1 = lat1 * rad, p2 = lat2 * rad;
+    const dp = (lat2 - lat1) * rad, dl = (lon2 - lon1) * rad;
+    const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  class Heap {
+    constructor() { this.ids = []; this.keys = []; }
+    get size() { return this.ids.length; }
+    push(id, key) {
+      this.ids.push(id); this.keys.push(key);
+      let i = this.ids.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (this.keys[p] <= this.keys[i]) break;
+        [this.ids[i], this.ids[p]] = [this.ids[p], this.ids[i]];
+        [this.keys[i], this.keys[p]] = [this.keys[p], this.keys[i]];
+        i = p;
+      }
+    }
+    pop() {
+      const id = this.ids[0], key = this.keys[0];
+      const lastId = this.ids.pop(), lastKey = this.keys.pop();
+      if (this.ids.length) {
+        this.ids[0] = lastId; this.keys[0] = lastKey;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1, r = l + 1;
+          let m = i;
+          if (l < this.ids.length && this.keys[l] < this.keys[m]) m = l;
+          if (r < this.ids.length && this.keys[r] < this.keys[m]) m = r;
+          if (m === i) break;
+          [this.ids[i], this.ids[m]] = [this.ids[m], this.ids[i]];
+          [this.keys[i], this.keys[m]] = [this.keys[m], this.keys[i]];
+          i = m;
+        }
+      }
+      return [id, key];
+    }
+  }
+
+  function astarJS(g, start, goal, mode) {
+    const n = g.nodes.length;
+    const gScore = new Float64Array(n).fill(Infinity);
+    const came = new Int32Array(n).fill(-1);
+    const closed = new Uint8Array(n);
+    const maxMps = (mode === "walk" ? 6 : 80) / 3.6;
+    const glon = g.nodes[goal][0], glat = g.nodes[goal][1];
+    const h = i => hav(g.nodes[i][0], g.nodes[i][1], glon, glat) / maxMps;
+    const heap = new Heap();
+    gScore[start] = 0;
+    heap.push(start, h(start));
+    let expanded = 0;
+    while (heap.size) {
+      const [u] = heap.pop();
+      if (closed[u]) continue;
+      closed[u] = 1;
+      expanded++;
+      if (u === goal) break;
+      for (const [v, distance, time] of g.adj[u]) {
+        const tentative = gScore[u] + time;
+        if (tentative < gScore[v]) {
+          gScore[v] = tentative;
+          came[v] = u;
+          heap.push(v, tentative + h(v));
+        }
+      }
+    }
+    if (!Number.isFinite(gScore[goal])) return { ok: false, expanded };
+    const path = [];
+    let cur = goal;
+    while (cur !== -1) {
+      path.push(cur);
+      if (cur === start) break;
+      cur = came[cur];
+    }
+    path.reverse();
+    if (path[0] !== start) return { ok: false, expanded };
+    let distance = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      const edge = g.adj[a].find(e => e[0] === b);
+      distance += edge ? edge[1] : hav(g.nodes[a][0], g.nodes[a][1], g.nodes[b][0], g.nodes[b][1]);
+    }
+    return { ok: true, path, distance, timeSec: gScore[goal], expanded };
+  }
+
+  function select(id, opts) {
+    const r = byId[id] || routes[0];
+    if (!r) return;
+    active = r;
+    browserInfo = (opts && opts.browser) || null;
+    document.querySelectorAll(".route").forEach(b => b.classList.toggle("active", b.dataset.route === r.id));
+    const feature = features[r.id];
+    if (feature) map.getSource("route").setData({ type: "FeatureCollection", features: [feature] });
+
+    markers.splice(0).forEach(m => m.remove());
+    const start = document.createElement("div");
+    start.className = "marker start";
+    start.innerHTML = `<span class="pin"></span><span class="lab">起 · ${esc(r.from)}</span>`;
+    markers.push(new maplibregl.Marker({ element: start, anchor: "left", offset: [7, 0] }).setLngLat(r.start).addTo(map));
+    const end = document.createElement("div");
+    end.className = "marker end";
+    end.innerHTML = `<span class="pin"></span><span class="lab">终 · ${esc(r.to)}</span>`;
+    markers.push(new maplibregl.Marker({ element: end, anchor: "left", offset: [7, 0] }).setLngLat(r.end).addTo(map));
+
+    const osm = r.osrm;
+    const delta = osm ? Math.round(r.distanceM - osm.osrmDistanceM) : null;
+    document.getElementById("hud").innerHTML = `
+      <div class="kicker"><span class="dot"></span>${r.mode === "walk" ? "WALKING" : "TAXI"} · LOCAL A*</div>
+      <h2>${esc(r.from)} → ${esc(r.to)}</h2>
+      <div class="meta">
+        <span class="chip ${r.mode === "car" ? "car" : ""}">${r.mode === "walk" ? "步行" : "打车"}</span>
+        <span>${(r.distanceM / 1000).toFixed(2)} km</span><span>·</span>
+        <span>${r.durationMin} 分钟</span><span>·</span>
+        <span>${r.avgSpeedKmh} km/h</span><span>·</span>
+        <span>预计算 ${r.ms} ms</span>
+      </div>
+      <div class="osrm">${osm
+        ? `OSRM 基线：${(osm.osrmDistanceM/1000).toFixed(2)} km · ${osm.osrmDurationMin} 分钟 · 本地距离差 ${delta > 0 ? "+" : ""}${delta} m`
+        : "OSRM 基线：该样本未取得对照"}</div>
+      ${browserInfo ? `<div class="browser">浏览器本地 A*：${browserInfo.distanceM} m · ${browserInfo.durationMin} min · ${browserInfo.ms} ms · ${browserInfo.expanded} 展开</div>` : ""}`;
+
+    const coords = feature ? feature.geometry.coordinates : [r.start, r.end];
+    const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
+    map.fitBounds(bounds, { padding: { top: 120, right: 190, bottom: 100, left: 70 }, duration: 0, maxZoom: 15.4 });
+  }
+
+  function finishLoad() {
+    document.getElementById("loading").classList.add("hidden");
+    if (!window.__selectedOnce) {
+      window.__selectedOnce = true;
+      select(requestedRoute || routes[0].id);
+      if (params.get("recompute") === "1") setTimeout(recompute, 250);
+    }
+  }
+  map.on("load", finishLoad);
+  map.on("idle", finishLoad);
+  async function recompute() {
+    const r = active;
+    if (!r) return;
+    const btn = document.getElementById("recompute");
+    const status = document.getElementById("browserStatus");
+    btn.disabled = true;
+    status.textContent = "加载本地路网图…";
+    try {
+      const key = `${city}-${r.mode}`;
+      let g = graphCache[key];
+      if (!g) {
+        const resp = await fetch(`data/graphs/${key}.json`);
+        if (!resp.ok) throw new Error(`graph ${resp.status}`);
+        g = await resp.json();
+        graphCache[key] = g;
+      }
+      const from = g.places[r.fromKey], to = g.places[r.toKey];
+      if (!from || !to) throw new Error("place missing in graph");
+      const t0 = performance.now();
+      const res = astarJS(g, from.node, to.node, r.mode);
+      const ms = performance.now() - t0;
+      if (!res.ok) throw new Error("no route");
+      const coords = res.path.map(i => g.nodes[i]);
+      features[r.id] = {
+        type: "Feature",
+        properties: { ...features[r.id].properties, source: "browser-astar" },
+        geometry: { type: "LineString", coordinates: coords }
+      };
+      map.getSource("route").setData({ type: "FeatureCollection", features: [features[r.id]] });
+      const browser = {
+        ms: Math.round(ms * 10) / 10,
+        distanceM: Math.round(res.distance),
+        durationMin: Math.round(res.timeSec / 60 * 10) / 10,
+        expanded: res.expanded
+      };
+      status.textContent = `浏览器 A* · ${browser.ms} ms · ${browser.distanceM} m · ${browser.expanded} 展开`;
+      select(r.id, { browser });
+    } catch (err) {
+      status.textContent = "本地重算失败：" + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById("recompute").addEventListener("click", recompute);
+  document.getElementById("routes").addEventListener("click", e => {
+    const b = e.target.closest("[data-route]");
+    if (b) select(b.dataset.route);
+  });
+  map.on("error", e => {
+    console.error(e.error || e);
+    const l = document.getElementById("loading");
+    l.textContent = "地图/瓦片加载失败：" + (e.error && e.error.message || "unknown");
+    l.classList.remove("hidden");
+  });
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function fmtNum(n) { return (n / 1000).toFixed(0) + "k"; }
+})();
+</script>
+</body>
+</html>
