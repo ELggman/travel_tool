@@ -23,7 +23,7 @@ spikes/
 │   └── compare_osrm.py         # 开发期 OSRM 对照（不进入 App）
 ├── routing/astar.ts            # Node 版本地 A*
 ├── web/
-│   ├── preview.html            # MapLibre + 本地 PMTiles + 浏览器 A*
+│   ├── preview.html            # MapLibre + 本地 PMTiles + 浏览器 A* + 关键地点标签
 │   ├── vendor/                 # 本地 MapLibre GL JS 5.24
 │   └── data/                   # 路线摘要 / GeoJSON / manifest（已提交）
 └── out/                        # 路线摘要、GeoJSON、OSRM 对照、CSV（已提交）
@@ -103,6 +103,8 @@ http://127.0.0.1:8091/preview.html?city=chongqing&route=cq-walk-03&recompute=1
 - 左侧切换城市/路线；
 - 地图来自本地 PMTiles；
 - 点击“在浏览器本地重算这条路线”，会用浏览器内的 A* 实际计算，HUD 显示毫秒数；
+- `compare=1` 叠加 OSRM 几何对照（开发期用，不进入 App）；
+- 关键地点标签来自样本地点，离线 HTML overlay；
 - `recompute=1` 会自动触发一次浏览器内计算。
 
 ### 离线模拟

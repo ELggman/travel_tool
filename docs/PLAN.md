@@ -726,6 +726,7 @@ git push -u origin feat/map-engine
 - 详细报告：[docs/spikes/city-map-report.md](spikes/city-map-report.md)。
 - 仍需修正：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06` 等异常路线；打车时长标定；离线中文标签；转向限制/坡度。
 - 2026-10-22 Android 壳：JDK 21 + SDK 35 + 手工 aapt2/d8/apksigner 构建 APK；Android 35 arm64 模拟器通过三城/离线/A*，冷启动 971 ms，PSS 126.6 MB；物理真机待连接。
+- 2026-10-22 路线复核：30 条自动几何对照，10 条被标记，仅 2 条距离差 >10%（已人工对照，属可行替代/门禁差异）；关键地点离线标签已加，完整 glyphs/POI 仍待补。
 
 ### 下一步
 

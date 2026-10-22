@@ -63,8 +63,9 @@ android/build/yanlu-spike-debug.apk
 - Android 35 arm64 模拟器 `sdk_gphone64_arm64`
 - 冷启动 971 ms；本地服务起来后 0.38 s 页面完成
 - 三城底图/路线/A* 正常；飞行模式 + 关闭 Wi-Fi/数据后仍可加载和重算
+- 关键地点标签在 Android 上显示（HTML overlay，无在线字体）
 - PSS 126.6 MB / RSS 239.0 MB（模拟器参考值）
-- 截图：[重庆](../docs/spikes/screenshots/android-chongqing.png)、[武汉·飞行模式](../docs/spikes/screenshots/android-wuhan-offline.png)、[贵阳](../docs/spikes/screenshots/android-guiyang.png)
+- 截图：[重庆](../docs/spikes/screenshots/android-chongqing.png)、[重庆·地点标签](../docs/spikes/screenshots/android-labels-chongqing.png)、[武汉·飞行模式](../docs/spikes/screenshots/android-wuhan-offline.png)、[贵阳](../docs/spikes/screenshots/android-guiyang.png)
 
 ## 真机安装
 

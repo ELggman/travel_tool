@@ -18,7 +18,7 @@
 5. 在本地 PMTiles/ZXY 服务上加载 MapLibre，预览路线；断外网仍可加载和重算。
 6. 生成静态 CDN 用的 pack manifest，并验证 HTTP Range/CORS 与 SHA-256。
 
-没有验证：真实 Android WebView 性能、Kotlin 本地服务、离线中文标签、离线 POI 搜索、转向限制/坡度。
+没有验证：物理 Android 真机、Kotlin 本地服务、完整道路/POI 中文标签、离线 POI 搜索、转向限制/坡度。
 
 ---
 
@@ -51,7 +51,7 @@
 
 - **28/30 ≤10%，29/30 ≤20%**。整体说明 OSM 路网 + A* 的方向是对的。
 - 误差是“与 OSRM 的路线距离差”，不是与真实世界的绝对误差；OSRM 也可能有数据/转向差异。
-- 人工视觉只抽查了 7 条代表性路线（三城跨江/山地/长距离）；其余 23 条目前只有 OSRM 距离对照，**正式验收仍需逐条看几何和道路合法性**。
+- 人工视觉抽查了 9 条代表性路线（三城跨江/山地/长距离）；其余 21 条目前只有 OSRM 距离/几何对照，**正式验收仍需逐条看道路合法性**。
 - 完整逐条数据：[`spikes/out/all-routes.csv`](../../spikes/out/all-routes.csv)。
 
 ### 3.2 需要人工确认的异常
@@ -69,6 +69,30 @@
 - **出租车时长整体偏保守**：本地按道路等级估算，不含实时路况，普遍比 OSRM 慢 10%–40%（长距离更明显）。v1 必须标注“估算”，并在产品里校准城市平均速度。
 - **转向限制尚未建模**：目前只处理 `oneway`、`access`；没有 turn restriction、路口禁左等。重庆/武汉立交多，这会放大误差。
 - **没有坡度/楼梯权重**：重庆、贵阳的步行时间会被低估或高估；v1 至少要在 UI 里提示“坡道/楼梯多”。
+
+### 3.3 几何复核（30/30 自动 + 9 条人工）
+
+新增 `spikes/scripts/review_routes.py`：把 30 条本地路线与 OSRM 几何做逐段最近距离比较，标记两类情况：
+
+1. 距离差 >10%；
+2. 两条路线最大偏离 >300 m（可能是不同桥/不同单行，不一定是错误）。
+
+结果：
+
+- **10/30 被标记**；但只有 **2/30 距离差 >10%**：
+  - `cq-walk-08` 来福士→洪崖洞：本地 1.26 km，OSRM 1.61 km，−21.9%。几何对照显示本地走更直接的步行连接，没有跨水/明显障碍；属于“更短但需现场确认楼梯/小区门禁”的差异。
+  - `wh-taxi-07` 光谷→武汉大学：本地 6.83 km，OSRM 6.09 km，+12.1%。两条都合法，本地在武大附近绕行一个街区；属于“出入口/校园道路连接缺失”，不是跨水或逆行。
+- 其余 8 条被标记的路线，距离差都在 10% 以内，主要是**不同桥梁/不同平行道路**：
+  - `cq-taxi-10` 磁器口→朝天门：+6.4%，最大偏离 3.68 km，两条路线选择不同过江通道。
+  - `gy-taxi-06` 喷水池→观山湖：−9.4%，最大偏离 2.20 km，本地走更直接的北侧道路。
+  - `cq-taxi-04`、`cq-taxi-09`、`wh-walk-03`、`wh-walk-04`、`wh-taxi-08`、`gy-taxi-07` 同样属于替代路径。
+- 已人工看过的 9 条里，没有发现明显跨水、逆行或穿过建筑的错误；结论是**当前没有阻塞级图错误**，但武大/来福士这类“门禁/楼梯/校园道路”需要现场确认，不能只靠 OSRM 判定。
+
+明细：[route-review.csv](../../spikes/out/route-review.csv)、[route-review.json](../../spikes/out/route-review.json)。
+
+![重庆磁器口→朝天门：本地路线 vs OSRM 对照](screenshots/route-review-chongqing.png)
+
+> 图中珊瑚色为本地 A*，蓝色虚线为 OSRM 开发期对照；底色上的灰色小字是新增的离线关键地点标签。
 
 ---
 
@@ -122,9 +146,12 @@
   - 浏览器 A*：重庆 2.3 ms、武汉 0.8 ms、贵阳 1.2 ms。
   - 飞行模式 + 关闭 Wi-Fi/数据后强制停止再启动：地图和 A* 仍正常，无外部网络。
   - 内存：TOTAL PSS **126.6 MB**，TOTAL RSS **239.0 MB**（模拟器，仅参考）。
+- 关键地点标签在 Android 上同样显示（当前是 HTML overlay，不依赖 glyphs）：[Android 多地点标签](screenshots/android-labels-chongqing.png)。
 - 截图：[Android 重庆](screenshots/android-chongqing.png)、[Android 武汉·飞行模式](screenshots/android-wuhan-offline.png)、[Android 贵阳](screenshots/android-guiyang.png)。
 
 ![Android 重庆](screenshots/android-chongqing.png)
+
+![Android 关键地点标签](screenshots/android-labels-chongqing.png)
 
 ### 还没完成的真机项
 
@@ -149,7 +176,7 @@
 
 | 问题 | 影响 | 下一步 |
 |---|---|---|
-| 无中文标注 | 地图可看但不完整 | 下载并本地化 glyphs/sprites，补主要道路/地名/POI 标签 |
+| 只有关键地点标签 | 地图可看，但没有道路名/完整 POI 标注 | 已加关键地点 HTML 标签；下一步本地化 glyphs/sprites，补道路/POI 标签 |
 | 无离线 POI 搜索 | 断网只能地图点选 | 打包城市 POI 索引（SQLite FTS / 紧凑二进制）；地图点选作为兜底 |
 | 转向限制缺失 | 立交/单行口可能给出不合规路线 | 引入 turn restriction，或改用 GraphHopper/Valhalla 生成的图 |
 | 坡度/楼梯未建模 | 重庆/贵阳步行时间不准 | v1 标注“坡度/楼梯影响”；后续加高程/楼梯权重 |
@@ -175,7 +202,7 @@
 
 但必须先解决：
 
-1. 异常路线（至少 `cq-walk-08`、`wh-taxi-07`、`gy-taxi-06`）的人工复核与图修正；
+1. 已标记的 2 条距离异常（`cq-walk-08`、`wh-taxi-07`）做现场/门禁/校园道路确认；其余替代路径按可接受处理，不再阻塞；
 2. 出租车时长标定 + “估算”标识；
 3. 本地 glyphs/sprites 与离线 POI；
 4. 转向限制/坡度；
