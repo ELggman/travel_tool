@@ -59,6 +59,7 @@
   .actions button:hover { background:rgba(255,255,255,.09); border-color:rgba(243,238,226,.45); }
   .actions button:disabled { opacity:.55; cursor:wait; }
   .actions .status { font-size:8px; color:#8B9182; min-height:11px; }
+  .mobile-attrib { display:none; }
   .hud .browser { margin-top:6px; font-size:8px; color:#A34B32; background:#F8E9DC; border-radius:5px; padding:4px 6px; }
   .stats { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:12px 0; margin-bottom:14px; }
   .stat { display:flex; justify-content:space-between; gap:12px; font-size:9px; padding:3px 0; color:#9EA394; }
@@ -109,6 +110,38 @@
     .panel { width:100%; height:auto; max-height:none; }
     .map-wrap { height:65vh; min-height:480px; width:100%; }
   }
+  @media (max-width: 700px) {
+    html, body { height:100%; overflow:hidden; }
+    body { display:block; }
+    .map-wrap { position:absolute; inset:0; height:100%; min-height:0; width:100%; }
+    .panel {
+      position:absolute; z-index:10; left:0; right:0; top:auto; bottom:0;
+      width:auto; height:auto; max-height:46vh; overflow:auto;
+      padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+      border-radius:18px 18px 0 0; box-shadow:0 -18px 40px -24px rgba(0,0,0,.55);
+    }
+    .brand, .eyebrow, h1, .sub, .section-label, .stats, .note { display:none; }
+    .city-tabs { margin-bottom:8px; }
+    .city-tabs button { padding:7px 0; font-size:10px; }
+    .route-list { flex-direction:row; overflow-x:auto; gap:6px; margin-bottom:8px; padding-bottom:2px; scrollbar-width:none; }
+    .route-list::-webkit-scrollbar { display:none; }
+    .route { min-width:186px; flex:none; padding:7px 8px; }
+    .route .n { font-size:10px; }
+    .actions { margin:0; }
+    .actions button { padding:8px 10px; font-size:9px; }
+    .actions .status { display:none; }
+    .map-top { top:46px; left:14px; right:14px; flex-direction:column; align-items:flex-start; gap:8px; }
+    .hud { max-width:calc(100vw - 28px); padding:9px 11px; border-radius:12px; }
+    .hud h2 { font-size:15px; }
+    .hud .meta { gap:6px; font-size:8px; }
+    .hud .osrm { font-size:7.5px; }
+    .hud .browser { font-size:7.5px; }
+    .offline-badge { align-self:flex-end; padding:5px 8px; font-size:7px; }
+    .attrs { display:none; }
+    .mobile-attrib { display:block; font-size:6.5px; line-height:1.5; color:#7D8476; letter-spacing:.01em; }
+    .maplibregl-ctrl-bottom-right { bottom:calc(46vh + 12px); }
+    .maplibregl-ctrl-top-right { top:8px; }
+  }
 </style>
 </head>
 <body>
@@ -128,6 +161,7 @@
   <div class="actions">
     <button id="recompute" type="button">在浏览器本地重算这条路线 →</button>
     <span class="status" id="browserStatus">预计算用于列表；点击后在图数据上实算。</span>
+    <div class="mobile-attrib">© OpenStreetMap contributors · Protomaps · local PMTiles</div>
   </div>
 
   <div class="section-label"><span>Local graph</span><b id="cityLabel"></b></div>
@@ -159,11 +193,19 @@
   const features = Object.fromEntries(data.geojson.features.map(f => [f.properties.id, f]));
   const cityNames = { chongqing: "重庆", wuhan: "武汉", guiyang: "贵阳" };
   const packId = data.pack.replace(/\.pmtiles$/, "");
+  const tilesRoot = params.get("tilesRoot");
+  const rootPath = tilesRoot ? tilesRoot.replace(/\/$/, "") : "";
+  const tileTemplate = tilesRoot
+    ? `${rootPath.startsWith("http") ? "" : location.origin}${rootPath}/${city}/{z}/{x}/{y}.mvt`
+    : `http://127.0.0.1:8090/${packId}/{z}/{x}/{y}.mvt`;
 
   document.getElementById("cities").innerHTML = Object.entries(cityNames).map(([k, n]) =>
     `<button class="${k === city ? "active" : ""}" data-city="${k}">${n}</button>`).join("");
   document.querySelectorAll("[data-city]").forEach(b => b.addEventListener("click", () => {
-    location.search = `?city=${b.dataset.city}`;
+    const q = new URLSearchParams({ city: b.dataset.city });
+    if (tilesRoot) q.set("tilesRoot", tilesRoot);
+    if (params.get("recompute") === "1") q.set("recompute", "1");
+    location.search = `?${q.toString()}`;
   }));
 
   document.getElementById("cityLabel").textContent = data.name;
@@ -191,7 +233,7 @@
       sources: {
         base: {
           type: "vector",
-          tiles: [`http://127.0.0.1:8090/${packId}/{z}/{x}/{y}.mvt`],
+          tiles: [tileTemplate],
           minzoom: 0,
           maxzoom: 15,
           attribution: "© OpenStreetMap contributors · Protomaps"
@@ -371,7 +413,13 @@
 
     const coords = feature ? feature.geometry.coordinates : [r.start, r.end];
     const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
-    map.fitBounds(bounds, { padding: { top: 120, right: 190, bottom: 100, left: 70 }, duration: 0, maxZoom: 15.4 });
+    const mobile = window.matchMedia("(max-width: 700px)").matches;
+    map.fitBounds(bounds, {
+      padding: mobile
+        ? { top: 180, right: 145, bottom: Math.round(window.innerHeight * 0.46) + 26, left: 50 }
+        : { top: 120, right: 190, bottom: 100, left: 70 },
+      duration: 0, maxZoom: 15.4
+    });
   }
 
   function finishLoad() {

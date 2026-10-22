@@ -52,8 +52,14 @@ spikes/map/
 spikes/web/data/graphs/
 tools/
 .venv-spike/
+.toolchain/
+android/build/
+android/app/src/main/assets/web/
 *.pmtiles
 *.mbtiles
 *.osm.pbf
 *.gh
 *.graph
+
+__pycache__/
+*.pyc

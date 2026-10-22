@@ -51,7 +51,7 @@
 
 - **28/30 ≤10%，29/30 ≤20%**。整体说明 OSM 路网 + A* 的方向是对的。
 - 误差是“与 OSRM 的路线距离差”，不是与真实世界的绝对误差；OSRM 也可能有数据/转向差异。
-- 人工视觉只抽查了 5 条代表性路线（三城跨江/山地/长距离）；其余 25 条目前只有 OSRM 距离对照，**正式验收仍需逐条看几何和道路合法性**。
+- 人工视觉只抽查了 7 条代表性路线（三城跨江/山地/长距离）；其余 23 条目前只有 OSRM 距离对照，**正式验收仍需逐条看几何和道路合法性**。
 - 完整逐条数据：[`spikes/out/all-routes.csv`](../../spikes/out/all-routes.csv)。
 
 ### 3.2 需要人工确认的异常
@@ -106,9 +106,36 @@
   - 完整下载重庆包后 SHA-256 与 manifest 一致。
 - 尚未上传阿里云 OSS / 腾讯云 COS（没有账号凭据）；本轮只验证了客户端需要的 HTTP 语义与哈希校验。
 
+
 ---
 
-## 6. 截图
+## 6. Android 壳验证（模拟器）
+
+> 结论：**功能链路在 Android 上跑通**；但当前只连了 Android 35 arm64 模拟器，尚未连接物理真机，不能把这一节当作真机验收。
+
+- 工具链：Temurin JDK 21、Android SDK platform 35 / build-tools 35.0.0；手工 `aapt2 → javac → d8 → zipalign → apksigner` 构建，绕开本机 Gradle native 兼容问题。
+- APK：`com.yanlu.travel`，minSdk 26，targetSdk 35，约 **26 MB**；三城 assets 约 53 MB。
+- 设备：`sdk_gphone64_arm64`，Android 35，1080×2400，dpr 2.625。
+- 结果：
+  - 冷启动 `am start -W`：**971 ms**；本地服务启动后 **0.38 s** 页面完成。
+  - 三城底图、路线列表、起终点 marker、路线 fitBounds 均正常。
+  - 浏览器 A*：重庆 2.3 ms、武汉 0.8 ms、贵阳 1.2 ms。
+  - 飞行模式 + 关闭 Wi-Fi/数据后强制停止再启动：地图和 A* 仍正常，无外部网络。
+  - 内存：TOTAL PSS **126.6 MB**，TOTAL RSS **239.0 MB**（模拟器，仅参考）。
+- 截图：[Android 重庆](screenshots/android-chongqing.png)、[Android 武汉·飞行模式](screenshots/android-wuhan-offline.png)、[Android 贵阳](screenshots/android-guiyang.png)。
+
+![Android 重庆](screenshots/android-chongqing.png)
+
+### 还没完成的真机项
+
+- 物理 Android 手机安装、USB 调试授权、真实 GPU/WebView 性能
+- 低端机内存/发热/首屏时间
+- 状态栏/刘海/横屏适配
+- 真机上的手势拖动排序（当前只验证地图与算路）
+
+---
+
+## 7. 截图
 
 | 重庆·跨江打车 | 武汉·跨江打车 | 贵阳·步行 |
 |---|---|---|
@@ -118,7 +145,7 @@
 
 ---
 
-## 7. 发现的问题
+## 8. 发现的问题
 
 | 问题 | 影响 | 下一步 |
 |---|---|---|
@@ -135,7 +162,7 @@
 
 ---
 
-## 8. 决策
+## 9. 决策
 
 **条件通过：继续走开源栈 A，不切换到国内 SDK。**
 
@@ -156,7 +183,7 @@
 
 ---
 
-## 9. 复现
+## 10. 复现
 
 ```bash
 # 1. 依赖

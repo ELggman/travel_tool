@@ -724,7 +724,8 @@ git push -u origin feat/map-engine
 - 已完成：三城核心区离线 PMTiles、OSM 路网、步行/打车图、本地 A*、浏览器内 A*、断外网加载、CDN manifest/Range 验证。
 - 结果：30/30 路线可计算，28/30 与 OSRM 距离误差 ≤10%，29/30 ≤20%；条件通过，继续开源栈 A。
 - 详细报告：[docs/spikes/city-map-report.md](spikes/city-map-report.md)。
-- 仍需修正：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06` 等异常路线；打车时长标定；离线中文标签；转向限制/坡度；Android WebView + Kotlin 本地服务真机验证。
+- 仍需修正：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06` 等异常路线；打车时长标定；离线中文标签；转向限制/坡度。
+- 2026-10-22 Android 壳：JDK 21 + SDK 35 + 手工 aapt2/d8/apksigner 构建 APK；Android 35 arm64 模拟器通过三城/离线/A*，冷启动 971 ms，PSS 126.6 MB；物理真机待连接。
 
 ### 下一步
 
