@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Node / web
+node_modules/
+dist/
+build/
+.vite/
+.turbo/
+coverage/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+!android/app/debug.keystore
+*.hprof
+
+# Capacitor / Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+
+# iOS (later)
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+
+# Map data / large assets
+*.pmtiles
+*.mbtiles
+*.osm.pbf

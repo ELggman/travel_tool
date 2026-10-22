@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>沿路 · 京都红叶慢行 — 旅行规划</title>
+<meta name="description" content="和朋友一起规划旅行的 App：按天排行程，拖动调整顺序，地图路线实时更新。" />
+<script>
+  (function () {
+    var p = new URLSearchParams(location.search);
+    if (p.get('embed') === '1') document.documentElement.classList.add('embed-mode');
+    if (p.get('still') === '1') document.documentElement.classList.add('still-mode');
+  })();
+</script>
+<style>
+:root {
+  --paper: #F3EEE2;
+  --paper-2: #FAF6EC;
+  --paper-3: #FCF9F1;
+  --ink: #1E2822;
+  --ink-soft: #3B463D;
+  --muted: #7B7868;
+  --muted-2: #989483;
+  --line: #DED6C3;
+  --line-soft: #EAE2D1;
+  --coral: #CE4B2B;
+  --coral-deep: #A93D24;
+  --coral-soft: #F3D9CB;
+  --moss: #44583F;
+  --map: #ECE7D8;
+  --serif: "Songti SC", "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif SC", Georgia, serif;
+  --sans: "PingFang SC", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --shadow-phone: 0 44px 90px -36px rgba(38, 42, 30, 0.55), 0 14px 34px -22px rgba(38, 42, 30, 0.3);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+html { background: #E7E1D2; }
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  background: #E7E1D2;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: #EDC6B5; color: #3C2017; }
+button { font-family: inherit; }
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.ic {
+  width: 16px; height: 16px; display: block; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ic.xs { width: 11px; height: 11px; stroke-width: 1.9; }
+.ic.xxs { width: 8px; height: 8px; stroke-width: 2.2; }
+.ic.sm { width: 13px; height: 13px; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ═══════════════ presentation desk ═══════════════ */
+.desk {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 74px 28px 74px;
+  background:
+    radial-gradient(1100px 640px at 50% 4%, #F7F1E2 0%, rgba(247, 241, 226, 0) 62%),
+    radial-gradient(900px 900px at 105% 100%, #E3D9C3 0%, rgba(227, 217, 195, 0) 58%),
+    linear-gradient(160deg, #EDE7D8 0%, #E4DDCB 100%);
+}
+.desk::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .25;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+.desk::after {
+  content: ""; position: fixed; width: 620px; height: 620px; border: 1px solid rgba(84, 90, 68, .11);
+  border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -48%); pointer-events: none; z-index: 0;
+}
+.desk-brand {
+  position: fixed; top: 27px; left: 34px; z-index: 5;
+  display: flex; align-items: center; gap: 9px;
+  font-family: var(--serif); font-size: 15px; letter-spacing: .08em; color: var(--ink);
+}
+.desk-brand .mark {
+  width: 25px; height: 25px; border-radius: 8px; background: var(--ink); color: var(--paper-2);
+  display: grid; place-items: center;
+}
+.desk-brand .mark svg { width: 16px; height: 16px; }
+.desk-brand em { font-family: var(--sans); font-style: normal; font-size: 7.5px; letter-spacing: .26em; color: #8B8877; margin-left: 2px; transform: translateY(1px); }
+.desk-meta {
+  position: fixed; top: 31px; right: 34px; z-index: 5;
+  display: flex; align-items: center; gap: 14px;
+  font-size: 8px; letter-spacing: .2em; color: #8C8978; text-transform: uppercase;
+}
+.desk-meta a {
+  color: #8C8978; text-decoration: none; letter-spacing: .12em;
+  border-bottom: 1px solid #C9C1AD; padding-bottom: 2px; transition: color .2s, border-color .2s;
+}
+.desk-meta a:hover { color: var(--ink); border-color: var(--ink); }
+.stage-wrap { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; }
+.stage { position: relative; width: 390px; height: 844px; }
+.stage .app { transform-origin: top left; }
+.desk-foot {
+  position: fixed; bottom: 22px; left: 0; right: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+}
+.state-switch { display: flex; align-items: center; gap: 22px; }
+.state-switch button {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  border: 0; background: none; padding: 3px 1px; cursor: pointer;
+  font-size: 9px; letter-spacing: .12em; color: #8A8777; text-transform: uppercase;
+  transition: color .2s ease;
+}
+.state-switch button i { font-style: normal; font-size: 8px; letter-spacing: .06em; color: #AAA694; transition: color .2s; }
+.state-switch button::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: var(--coral);
+  transform: scaleX(0); transform-origin: left; transition: transform .25s ease;
+}
+.state-switch button[aria-pressed="true"] { color: var(--ink); }
+.state-switch button[aria-pressed="true"] i { color: var(--coral); }
+.state-switch button[aria-pressed="true"]::after { transform: scaleX(1); }
+.desk-hint { margin: 0; font-size: 9.5px; letter-spacing: .08em; color: #8C8978; }
+.desk-hint b { font-weight: 500; color: #5C5B4E; }
+html.embed-mode, html.embed-mode body { background: transparent !important; overflow: hidden; }
+html.embed-mode .desk { padding: 0; height: 844px; width: 390px; background: var(--paper); }
+html.embed-mode .desk::before, html.embed-mode .desk::after { display: none; }
+html.embed-mode .desk-brand, html.embed-mode .desk-meta, html.embed-mode .desk-foot { display: none; }
+html.embed-mode .stage-wrap { display: block; }
+html.embed-mode .stage { width: 390px !important; height: 844px !important; }
+html.embed-mode .stage .app { transform: none !important; border-radius: 0 !important; box-shadow: none !important; }
+html.still-mode .live-dot::after { animation: none !important; }
+html.still-mode .day-list.intro .day-card { animation: none !important; }
+html.mobile-mode .desk { padding: 8px; background: var(--paper); }
+html.mobile-mode .desk::before, html.mobile-mode .desk::after { display: none; }
+html.mobile-mode .desk-brand, html.mobile-mode .desk-meta, html.mobile-mode .desk-foot { display: none; }
+html.mobile-mode .stage-wrap { flex: none; }
+html.mobile-mode .app { box-shadow: 0 20px 50px -26px rgba(38, 42, 30, .45), 0 0 0 1px rgba(45, 52, 39, .1); }
+
+/* ═══════════════ app shell ═══════════════ */
+.app {
+  position: relative; width: 390px; height: 844px; border-radius: 44px; overflow: hidden;
+  background: var(--paper); color: var(--ink);
+  box-shadow: var(--shadow-phone), 0 0 0 1px rgba(45, 52, 39, .12), inset 0 1px 0 rgba(255, 255, 255, .7);
+  isolation: isolate;
+}
+.app::before {
+  content: ""; position: absolute; inset: 0; z-index: 95; pointer-events: none; opacity: .13; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23g)' opacity='.38'/%3E%3C/svg%3E");
+}
+.view { position: absolute; inset: 0; }
+.status {
+  position: absolute; top: 0; left: 0; right: 0; height: 52px; z-index: 60;
+  padding: 17px 25px 0; display: flex; align-items: flex-start; justify-content: space-between;
+  pointer-events: none; color: var(--ink);
+}
+.status .time { font-size: 13px; font-weight: 650; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.status .sicons { display: flex; align-items: center; gap: 5px; margin-top: -1px; }
+.status .sicons svg { display: block; }
+.home {
+  position: absolute; left: 50%; bottom: 8px; width: 128px; height: 5px; border-radius: 99px;
+  background: rgba(30, 40, 34, .72); transform: translateX(-50%); z-index: 70; pointer-events: none;
+}
+.avatars { display: flex; align-items: center; }
+.avatar {
+  position: relative; width: 28px; height: 28px; margin-left: -8px; border-radius: 50%;
+  border: 2px solid var(--paper); display: grid; place-items: center;
+  font-family: var(--serif); font-size: 10.5px; color: #3A2E26; letter-spacing: 0;
+  box-shadow: 0 2px 5px rgba(40, 44, 32, .08);
+}
+.avatar:first-child { margin-left: 0; }
+.avatar .pd {
+  position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px; border-radius: 50%;
+  background: #6E8F63; border: 1.5px solid var(--paper);
+}
+.avatar.xs { width: 20px; height: 20px; font-size: 8px; margin-left: 0; border-width: 1.5px; }
+.avatar.sm { width: 24px; height: 24px; font-size: 9px; margin-left: 0; }
+.invite {
+  width: 28px; height: 28px; margin-left: 5px; border-radius: 50%; border: 1px dashed #BFB6A2;
+  background: rgba(255, 252, 245, .35); display: grid; place-items: center; color: #918C7B; padding: 0; cursor: pointer;
+  transition: border-color .2s, color .2s, background .2s;
+}
+.invite:hover { border-color: var(--coral); color: var(--coral); background: rgba(255, 250, 240, .8); }
+.invite .ic { width: 12px; height: 12px; }
+.live-dot { position: relative; width: 6px; height: 6px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+.live-dot::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid rgba(206, 75, 43, .45);
+  animation: pulse 2.4s ease-out infinite;
+}
+@keyframes pulse { 0% { transform: scale(.7); opacity: 1; } 70%, 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pinPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes dashMove { to { stroke-dashoffset: -26; } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+
+/* ═══════════════ overview ═══════════════ */
+.view-overview {
+  display: flex; flex-direction: column;
+  padding: 52px 20px 0;
+  transition: opacity .38s ease, transform .38s cubic-bezier(.2,.7,.2,1);
+  background:
+    radial-gradient(360px 260px at 106% 4%, rgba(231, 172, 144, .2), rgba(231, 172, 144, 0) 70%),
+    var(--paper);
+}
+.app[data-view="day"] .view-overview { opacity: 0; transform: translateX(-16px) scale(.985); pointer-events: none; }
+.topbar { height: 36px; display: flex; align-items: center; justify-content: space-between; flex: none; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand .mark {
+  width: 26px; height: 26px; border-radius: 9px; background: var(--coral); color: #FFF8ED;
+  display: grid; place-items: center; box-shadow: 0 5px 12px -6px rgba(180, 60, 30, .6);
+}
+.brand .mark svg { width: 17px; height: 17px; }
+.brand .name { font-family: var(--serif); font-size: 15.5px; letter-spacing: .1em; line-height: 1; }
+.brand .en { display: block; font-family: var(--sans); font-size: 6.5px; letter-spacing: .3em; color: #908C7A; margin-top: 3px; }
+.people { display: flex; align-items: center; }
+.hero { position: relative; margin-top: 13px; flex: none; }
+.eyebrow { display: flex; align-items: center; gap: 7px; font-size: 8.5px; letter-spacing: .19em; color: #7D7D6C; text-transform: uppercase; }
+.eyebrow .live-dot { width: 5px; height: 5px; }
+.hero h1 {
+  margin: 8px 0 0; font-family: var(--serif); font-weight: 600;
+  font-size: 43px; line-height: 1.13; letter-spacing: .005em; color: var(--ink);
+}
+.hero h1 em { font-style: normal; position: relative; display: inline-block; }
+.hero h1 em::after {
+  content: ""; position: absolute; left: 2px; right: 7px; bottom: 1px; height: 6px; opacity: .85;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='6'%3E%3Cpath d='M2 4C28 1 77 1 118 3' stroke='%23CE4B2B' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
+  background-size: 100% 100%;
+}
+.seal {
+  position: absolute; right: 7px; bottom: 24px; width: 37px; height: 47px;
+  border: 1.5px solid var(--coral); border-radius: 3px; color: var(--coral);
+  writing-mode: vertical-rl; display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 12.5px; letter-spacing: .18em; transform: rotate(4deg); opacity: .9;
+  background: rgba(206, 75, 43, .035);
+}
+.seal::before { content: ""; position: absolute; inset: 3px; border: .5px solid rgba(206, 75, 43, .45); border-radius: 1px; }
+.trip-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 10px; color: var(--muted); letter-spacing: .03em; }
+.trip-meta .dates { font-weight: 600; color: var(--ink-soft); letter-spacing: .07em; font-variant-numeric: tabular-nums; }
+.trip-meta .rule { width: 14px; height: 1px; background: #CEC6B2; }
+.weather {
+  margin-left: auto; display: flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border: 1px solid #E1D8C5; border-radius: 999px;
+  font-size: 8.5px; color: #666D5E; background: rgba(255, 252, 244, .55); white-space: nowrap;
+}
+.weather .ic { width: 11px; height: 11px; stroke-width: 1.6; }
+.presence {
+  position: relative; overflow: hidden; flex: none;
+  display: flex; align-items: center; gap: 7px; height: 38px; margin-top: 14px; padding: 0 11px;
+  border: 1px solid #EED8C7; border-radius: 13px;
+  background: linear-gradient(102deg, #F7E5D8 0%, #F5EBDD 78%);
+  font-size: 10px; color: #6C5444; letter-spacing: .01em;
+}
+.presence::after {
+  content: ""; position: absolute; right: 52px; top: -20px; width: 80px; height: 80px; border-radius: 50%;
+  border: 1px dashed rgba(206, 75, 43, .18); pointer-events: none;
+}
+.presence b { font-weight: 600; color: #48382C; }
+.presence .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.presence .when { font-size: 8px; color: #A98570; white-space: nowrap; letter-spacing: .06em; }
+.presence .avatar { margin-left: 2px; border-color: #F7E9DC; flex: none; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; flex: none; margin: 15px 1px 8px; }
+.section-head h2 { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; letter-spacing: .04em; }
+.section-head .count { font-size: 7.5px; letter-spacing: .17em; color: #918D7B; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.day-list { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.day-list.intro .day-card { animation: rise .62s cubic-bezier(.2,.7,.2,1) both; }
+.day-list.intro .day-card:nth-child(2) { animation-delay: .06s; }
+.day-list.intro .day-card:nth-child(3) { animation-delay: .12s; }
+.day-list.intro .day-card:nth-child(4) { animation-delay: .18s; }
+.day-card {
+  appearance: none; position: relative; flex: none; width: 100%; height: 91px;
+  display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 11px;
+  border: 1px solid #E5DDCA; border-radius: 17px; background: var(--paper-2); color: var(--ink);
+  text-align: left; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+}
+.day-card:hover { transform: translateY(-2px); border-color: #D6CDB6; box-shadow: 0 12px 22px -16px rgba(40, 40, 30, .5), inset 0 1px 0 rgba(255,255,255,.7); }
+.day-card:active { transform: scale(.993); }
+.day-card.is-live {
+  border-color: #202A23; color: #F5F0E2;
+  background:
+    radial-gradient(180px 120px at 102% -10%, rgba(206, 75, 43, .22), rgba(206, 75, 43, 0) 70%),
+    linear-gradient(112deg, #1F2A22 0%, #263329 100%);
+  box-shadow: 0 18px 30px -22px rgba(20, 32, 22, .8), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+.day-date {
+  width: 43px; flex: none; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-right: 1px solid #E7DFCD; padding-right: 8px; margin-right: 1px;
+}
+.is-live .day-date { border-color: rgba(245, 240, 226, .13); }
+.day-date .dow { font-size: 7.5px; letter-spacing: .16em; color: #9A9583; }
+.day-date .num { font-family: var(--serif); font-size: 25px; line-height: 1.02; margin: 2px 0 1px; letter-spacing: -.01em; }
+.day-date .mon { font-size: 6.5px; letter-spacing: .17em; color: #A7A18D; }
+.is-live .day-date .dow { color: #AAB5A6; }
+.is-live .day-date .mon { color: #94A092; }
+.day-info { flex: 1; min-width: 0; padding-right: 2px; }
+.day-kicker { display: flex; align-items: center; gap: 5px; font-size: 7px; letter-spacing: .15em; color: #9A9583; text-transform: uppercase; white-space: nowrap; }
+.day-kicker .live-dot { width: 4px; height: 4px; }
+.is-live .day-kicker { color: #E6A489; }
+.day-title { margin: 3px 0 4px; font-size: 14px; font-weight: 600; letter-spacing: .015em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-meta { display: flex; align-items: center; gap: 6px; font-size: 9.1px; color: #8B8775; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.is-live .day-meta { color: #A7B2A4; }
+.day-meta .sep { width: 2px; height: 2px; border-radius: 50%; background: currentColor; opacity: .55; flex: none; }
+.day-meta .edit { color: #EAA287; display: inline-flex; align-items: center; gap: 4px; }
+.day-meta .edit::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: #E9825F; }
+.mini { position: relative; width: 81px; height: 67px; border-radius: 11px; overflow: hidden; flex: none; border: 1px solid rgba(47, 55, 40, .07); }
+.is-live .mini { border-color: rgba(255, 255, 255, .07); }
+.mini svg { display: block; width: 100%; height: 100%; }
+.tabbar {
+  position: absolute; left: 50%; bottom: 23px; transform: translateX(-50%);
+  width: 300px; height: 58px; z-index: 40;
+  display: flex; align-items: center; justify-content: space-around;
+  background: rgba(252, 248, 239, .9); border: 1px solid rgba(220, 211, 192, .88); border-radius: 20px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 38px -24px rgba(35, 40, 30, .6), inset 0 1px 0 rgba(255, 255, 255, .7);
+  transition: opacity .3s ease, transform .35s ease;
+}
+.app[data-view="day"] .tabbar { opacity: 0; transform: translate(-50%, 18px); pointer-events: none; }
+.tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; height: 44px;
+  justify-content: center; border: 0; background: none; padding: 0; cursor: pointer;
+  color: #97937F; font-size: 8.6px; letter-spacing: .07em; transition: color .2s;
+}
+.tab .ic { width: 17px; height: 17px; stroke-width: 1.6; }
+.tab:hover { color: var(--ink-soft); }
+.tab.is-active { color: var(--ink); }
+.tab.is-active::after { content: ""; width: 3px; height: 3px; border-radius: 50%; background: var(--coral); }
+
+/* ═══════════════ day view ═══════════════ */
+.view-day {
+  opacity: 0; pointer-events: none; transform: translateY(10px);
+  transition: opacity .4s ease, transform .4s cubic-bezier(.2,.7,.2,1);
+}
+.app[data-view="day"] .view-day { opacity: 1; pointer-events: auto; transform: none; }
+.map-panel { position: absolute; left: 0; right: 0; top: 0; height: 334px; overflow: hidden; background: #ECE7D8; }
+.map-panel #mapSvg, .map-panel .map-svg { width: 390px; height: 340px; display: block; }
+.map-shade {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(245, 240, 228, .48) 0%, rgba(245, 240, 228, 0) 24%),
+    linear-gradient(0deg, rgba(245, 240, 228, .96) 0%, rgba(245, 240, 228, 0) 13%);
+}
+.map-svg text { user-select: none; }
+.map-roads path { pointer-events: none; }
+.map-txt { font-family: var(--sans); fill: #8C8C79; font-size: 7px; letter-spacing: .12em; }
+.map-txt.water { font-family: var(--serif); fill: #7F9D99; font-size: 8px; letter-spacing: .24em; }
+.map-txt.road { fill: #9A9580; font-size: 6.5px; letter-spacing: .16em; }
+.map-txt.area { fill: #7B8370; font-size: 6.5px; letter-spacing: .3em; opacity: .62; }
+.pin-label {
+  font-family: var(--sans); font-size: 9.2px; font-weight: 550; fill: #323B30; letter-spacing: .015em;
+  paint-order: stroke; stroke: #F1ECDF; stroke-width: 2.8px; stroke-linejoin: round;
+}
+.pin-inner { transform-box: fill-box; transform-origin: center; animation: pinPop .52s cubic-bezier(.2,.9,.3,1.25) both; animation-delay: calc(var(--i) * 55ms); }
+.map-svg.noanim .pin-inner { animation: none; }
+.pin-inner text { font-family: var(--sans); font-size: 9.1px; font-weight: 650; fill: #F8F3E7; text-anchor: middle; }
+.hot-ring { animation: hotRing 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes hotRing { 0% { transform: scale(.6); opacity: .8; } 80%, 100% { transform: scale(1.25); opacity: 0; } }
+.route-line { filter: drop-shadow(0 1px 1px rgba(147, 69, 42, .14)); }
+.route-preview { animation: dashMove 1.6s linear infinite; }
+.map-svg.noanim .route-preview, html.still-mode .route-preview { animation: none; }
+.collab-float { animation: floaty 6s ease-in-out infinite; }
+html.still-mode .collab-float { animation: none; }
+.map-topbar {
+  position: absolute; top: 52px; left: 16px; right: 16px; height: 38px; z-index: 20;
+  display: flex; align-items: center; gap: 8px;
+}
+.icon-btn {
+  width: 38px; height: 38px; padding: 0; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .72); background: rgba(250, 247, 238, .88);
+  display: grid; place-items: center; color: var(--ink); cursor: pointer;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 7px 18px -12px rgba(30, 40, 30, .5), inset 0 1px 0 rgba(255,255,255,.6);
+  transition: background .2s, transform .2s;
+}
+.icon-btn:hover { background: rgba(255, 252, 244, .98); }
+.icon-btn:active { transform: scale(.94); }
+.icon-btn .ic { width: 17px; height: 17px; }
+.map-people {
+  margin-left: auto; display: flex; align-items: center; gap: 0; height: 34px; padding: 0 5px 0 7px;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, .7);
+  background: rgba(250, 247, 238, .86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 7px 18px -12px rgba(30, 40, 30, .5);
+}
+.map-people .avatar { width: 23px; height: 23px; font-size: 8.5px; margin-left: -7px; border-color: #F8F3E7; }
+.map-people .avatar:first-child { margin-left: 0; }
+.map-people .pcount { margin-left: 6px; font-size: 7.5px; color: #7F7E6C; letter-spacing: .05em; }
+.map-title {
+  position: absolute; left: 50%; top: 55px; transform: translateX(-50%); z-index: 21;
+  height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, .66);
+  background: rgba(250, 247, 238, .82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font-size: 8px; letter-spacing: .13em; color: #6B6E5F; white-space: nowrap;
+  box-shadow: 0 7px 18px -14px rgba(30, 40, 30, .45);
+}
+.map-title b { font-weight: 600; font-size: 9.5px; letter-spacing: .1em; color: var(--ink); }
+.map-title .mdot { width: 2px; height: 2px; border-radius: 50%; background: #A4A08E; }
+.map-controls { position: absolute; right: 16px; top: 156px; z-index: 19; display: flex; flex-direction: column; gap: 7px; }
+.map-controls .icon-btn { width: 34px; height: 34px; border-radius: 11px; }
+.map-controls .ic { width: 15px; height: 15px; }
+.map-stat {
+  position: absolute; left: 16px; top: 232px; z-index: 19; display: flex; align-items: center; gap: 6px;
+  height: 29px; padding: 0 11px; border-radius: 999px;
+  background: rgba(31, 42, 35, .93); color: #F5F0E4; font-size: 8.8px; letter-spacing: .04em;
+  box-shadow: 0 9px 20px -12px rgba(20, 30, 22, .7); backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.map-stat .ic { width: 12px; height: 12px; opacity: .78; }
+.map-stat .sep2 { width: 1px; height: 9px; background: rgba(245, 240, 228, .22); }
+.map-stat .delta { color: #F0A285; font-weight: 600; padding-left: 5px; margin-left: 1px; border-left: 1px solid rgba(245, 240, 228, .2); letter-spacing: .03em; }
+.map-stat.is-preview { background: rgba(31, 42, 35, .96); }
+.sheet {
+  position: absolute; left: 0; right: 0; top: 298px; bottom: 0; z-index: 25;
+  display: flex; flex-direction: column; overflow: hidden;
+  background:
+    radial-gradient(300px 120px at 88% 0%, rgba(232, 201, 172, .16), rgba(232, 201, 172, 0) 70%),
+    var(--paper-2);
+  border-top: 1px solid rgba(255, 255, 255, .75); border-radius: 28px 28px 0 0;
+  box-shadow: 0 -18px 42px -26px rgba(30, 40, 30, .46);
+  transform: translateY(20px); opacity: 0;
+  transition: transform .46s cubic-bezier(.22,.8,.24,1), opacity .34s ease;
+}
+.app[data-view="day"] .sheet { transform: none; opacity: 1; transition-delay: .05s; }
+.sheet-grab { width: 38px; height: 4px; border-radius: 99px; background: #D9D1BE; margin: 9px auto 0; flex: none; }
+.sheet-head { padding: 7px 18px 0; flex: none; }
+.sheet-kicker { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 7.7px; letter-spacing: .16em; color: #96917F; text-transform: uppercase; }
+.sheet-kicker .wx { display: inline-flex; align-items: center; gap: 4px; font-size: 8.5px; letter-spacing: .04em; color: #767D6D; text-transform: none; }
+.sheet-kicker .wx .ic { width: 11px; height: 11px; }
+.sheet h2 { margin: 4px 0 3px; font-family: var(--serif); font-size: 25px; line-height: 1.18; font-weight: 600; letter-spacing: .01em; }
+.sheet-meta { display: flex; align-items: center; gap: 7px; font-size: 9.3px; color: #858271; font-variant-numeric: tabular-nums; }
+.sheet-meta span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.sheet-meta .ic { opacity: .65; }
+.sheet-meta .sep { width: 2px; height: 2px; border-radius: 50%; background: #B6B09F; flex: none; }
+.collab {
+  display: flex; align-items: center; gap: 6px; margin: 8px 0 5px; padding-top: 7px;
+  border-top: 1px solid #EDE6D6; font-size: 9.3px; color: #6F6C5C;
+}
+.collab .live-dot { width: 4.5px; height: 4.5px; }
+.collab b { font-weight: 600; color: #4A4E41; }
+.collab .right { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 8px; color: #9B9785; letter-spacing: .03em; }
+.collab .right .live-dot { width: 4px; height: 4px; background: #6E8F63; }
+.collab .right .live-dot::after { border-color: rgba(110, 143, 99, .45); }
+.plan-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 18px; scrollbar-width: none; }
+.plan-wrap::-webkit-scrollbar { display: none; }
+.plan-list { position: relative; padding-bottom: 8px; }
+.plan-list[data-count="4"] .leg { height: 34px; }
+.plan-item { position: relative; }
+.plan-item::before {
+  content: ""; position: absolute; left: 47.5px; top: 26.5px; bottom: 0;
+  border-left: 1px dashed #D4CBB7; pointer-events: none;
+}
+.plan-item:last-child::before { display: none; }
+.plan-row { position: relative; height: 53px; display: flex; align-items: center; }
+.plan-row::after {
+  content: ""; position: absolute; left: 45px; top: 23.5px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--paper-2); border: 1.5px solid #A9A491; z-index: 2;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+.plan-time {
+  width: 41px; flex: none; font-size: 9.5px; font-weight: 550; color: #817E6D;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; padding-top: 2px;
+}
+.plan-node { width: 14px; flex: none; align-self: stretch; }
+.stop-card {
+  flex: 1; min-width: 0; height: 53px; display: flex; align-items: center; gap: 5px;
+  padding: 6px 7px 6px 10px; border: 1px solid #E8E0CE; border-radius: 13px;
+  background: var(--paper-3); cursor: grab; position: relative;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .65) inset;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.stop-card:hover { border-color: #D9CEB7; background: #FFFDF6; box-shadow: 0 8px 16px -16px rgba(40, 40, 30, .4), 0 1px 0 rgba(255, 255, 255, .7) inset; }
+.stop-card:active { cursor: grabbing; }
+.stop-main { flex: 1; min-width: 0; }
+.stop-title-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.stop-title { min-width: 0; font-size: 13.1px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+.badge-book {
+  flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 2px 5px;
+  border: 1px solid #E8C9B7; border-radius: 5px; background: #FBF0E7; color: #B04B2D;
+  font-size: 7.5px; letter-spacing: .015em; line-height: 1.2; white-space: nowrap;
+}
+.badge-book .ic { width: 7px; height: 7px; stroke-width: 2.4; }
+.stop-sub { display: flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 9px; color: #878271; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stop-sub .dotsep, .leg .dotsep { width: 2px; height: 2px; border-radius: 50%; background: #B6B09E; flex: none; }
+.grip { flex: none; width: 12px; height: 22px; display: flex; align-items: center; justify-content: center; opacity: .42; color: #918B7B; }
+.grip svg { width: 9px; height: 15px; display: block; }
+.leg { position: relative; height: 27px; display: flex; align-items: center; font-size: 8.8px; color: #918C7A; letter-spacing: .01em; }
+.leg .ln { width: 41px; flex: none; }
+.leg .node { width: 14px; flex: none; }
+.leg .txt { display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; }
+.leg .txt .ic { opacity: .72; width: 11px; height: 11px; }
+.leg .via { margin-left: auto; padding-right: 2px; font-size: 7px; color: #B3AD9B; letter-spacing: .03em; white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+.plan-end { display: flex; align-items: center; gap: 8px; padding: 5px 0 9px 55px; color: #95907D; font-size: 8px; letter-spacing: .03em; }
+.plan-end::before { content: ""; width: 11px; height: 1px; background: #C9C1AD; }
+.sheet-hint {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6;
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 15px;
+  background: linear-gradient(180deg, rgba(250, 246, 236, 0) 0%, #FAF6EC 46%);
+  pointer-events: none;
+}
+.sheet-hint .pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px;
+  border: 1px solid #E8DFCC; border-radius: 999px; background: rgba(242, 235, 222, .92);
+  font-size: 8.4px; color: #8E8978; letter-spacing: .03em;
+  box-shadow: 0 5px 14px -10px rgba(40, 40, 30, .3);
+  transition: background .2s, border-color .2s, color .2s;
+}
+.sheet-hint .pill .ic { width: 9px; height: 14px; opacity: .6; }
+.sheet-hint .pill.hot { background: var(--coral); border-color: var(--coral); color: #FFF7EE; box-shadow: 0 8px 18px -10px rgba(160, 56, 30, .55); }
+.sheet-hint .pill.hot .ic { opacity: .85; }
+.sheet-hint .pill .hotdot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .55; }
+
+/* drag */
+.drag-layer { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
+.drag-layer .plan-item { position: absolute; width: 354px; height: 52px; }
+.is-floating::before { display: none !important; }
+.is-floating .plan-row::after { display: none; }
+.is-floating .leg { display: none; }
+.is-floating .plan-time { opacity: 0; }
+.is-floating .stop-card {
+  border-color: #D8B69F; background: #FFFCF4;
+  box-shadow: 0 24px 38px -18px rgba(30, 40, 30, .42), 0 4px 10px -6px rgba(30, 40, 30, .12), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.is-floating { transform: rotate(1.35deg); transform-origin: 50% 50%; }
+.drop-slot { position: relative; }
+.drop-slot::before { content: ""; position: absolute; left: 47.5px; top: 26px; bottom: 0; border-left: 1px dashed rgba(206, 75, 43, .38); }
+.ds-row { height: 52px; display: flex; align-items: center; }
+.ds-time { width: 41px; flex: none; font-size: 9.4px; font-weight: 550; color: var(--coral); padding-top: 2px; font-variant-numeric: tabular-nums; }
+.ds-node { width: 14px; flex: none; }
+.ds-card {
+  flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 5px;
+  border: 1px dashed rgba(198, 76, 44, .5); border-radius: 13px;
+  background: rgba(206, 75, 43, .055);
+  font-size: 8px; letter-spacing: .12em; color: #B25638; text-transform: uppercase;
+}
+.ds-card::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--coral); opacity: .8; }
+.ds-leg { height: 24px; }
+.app.is-dragging .plan-item .stop-card { cursor: grabbing; }
+.app.is-dragging .plan-item:not(.is-floating) .stop-card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.app.is-dragging .plan-item::before { opacity: .65; }
+.app.is-dragging .leg { opacity: .5; }
+.app.is-dragging .ds-leg { opacity: 1; }
+
+/* toast */
+.toast {
+  position: absolute; left: 50%; bottom: 82px; z-index: 100; max-width: 88%;
+  display: flex; align-items: center; gap: 10px; padding: 9px 13px;
+  border-radius: 999px; background: #202A22; color: #F5F0E3;
+  font-size: 9.5px; letter-spacing: .02em; white-space: nowrap;
+  box-shadow: 0 18px 32px -16px rgba(15, 24, 16, .7);
+  opacity: 0; transform: translate(-50%, 12px); pointer-events: none;
+  transition: opacity .26s ease, transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast span { overflow: hidden; text-overflow: ellipsis; }
+.toast button { flex: none; border: 0; border-bottom: 1px solid rgba(241, 162, 133, .5); background: none; color: #F1A285; padding: 0 0 1px; font-size: 9.5px; cursor: pointer; }
+.no-transition, .no-transition *, .no-transition *::before, .no-transition *::after {
+  transition-duration: 0s !important; animation-duration: 0s !important; animation-delay: 0s !important;
+}
+.app.instant, .app.instant *, .app.instant *::before, .app.instant *::after {
+  transition: none !important; animation: none !important;
+}
+.app.instant .sheet { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-route" viewBox="0 0 24 24"><path d="M4 18c3.2 0 3.2-6.4 6.8-6.4S14 18 20 18"/><circle cx="4" cy="18" r="1.7" fill="currentColor" stroke="none"/><circle cx="20" cy="18" r="1.7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.3" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.3" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.3" cy="17.5" r="1.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="m9 4.2-5.5 2.4v13.2L9 17.4l6 2.4 5.5-2.4V4.2L15 6.6 9 4.2Z"/><path d="M9 4.2v13.2M15 6.6v13.2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19.5c0-3 2.5-5.3 5.5-5.3s5.5 2.3 5.5 5.3"/><path d="M15.8 5.4a3 3 0 0 1 0 5.7M17.2 14.4c2.1.6 3.6 2.4 3.6 4.8"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5 8 12l6.5 7"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8.5 7.5 12 4l3.5 3.5"/><path d="M5 13v6.5h14V13"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4" r="1.8"/><path d="m12.2 7.2-2 5 3.2 1.8 1.3 4.5M10.2 12.2l-3.2.8M13.4 14l-3.6 4.8"/></symbol>
+  <symbol id="i-taxi" viewBox="0 0 24 24"><path d="M4.5 15.5v-3l2-4.6h11l2 4.6v3"/><path d="M3 15.5h18v2.2H3z"/><circle cx="7" cy="18.3" r="1.5"/><circle cx="17" cy="18.3" r="1.5"/><path d="M9.5 4h5"/></symbol>
+  <symbol id="i-train" viewBox="0 0 24 24"><rect x="5.5" y="3.5" width="13" height="14.5" rx="3"/><path d="M5.5 11h13M9 21l1.8-3M15 21l-1.8-3"/><circle cx="9" cy="14.6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14.6" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M6.5 18h10.7a3.8 3.8 0 0 0 .4-7.6A5.6 5.6 0 0 0 6.9 9.2 4.4 4.4 0 0 0 6.5 18Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16.2 9"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.8-6.1 6.8-11A6.8 6.8 0 0 0 5.2 10c0 4.9 6.8 11 6.8 11Z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.5 8.5 4.7L12 12.9 3.5 8.2 12 3.5Z"/><path d="m3.5 12.3 8.5 4.7 8.5-4.7M3.5 16.4l8.5 4.7 8.5-4.7"/></symbol>
+  <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 10 16"><g fill="currentColor"><circle cx="2.3" cy="3.2" r="1.15"/><circle cx="7.7" cy="3.2" r="1.15"/><circle cx="2.3" cy="8" r="1.15"/><circle cx="7.7" cy="8" r="1.15"/><circle cx="2.3" cy="12.8" r="1.15"/><circle cx="7.7" cy="12.8" r="1.15"/></g></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5 13.8 9l5.5 1.8-5.5 1.8L12 18l-1.8-5.4L4.7 10.8 10.2 9 12 3.5Z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="desk">
+  <div class="desk-brand">
+    <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10"/><circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none"/></svg></span>
+    沿路 <em>YANLU</em>
+  </div>
+  <div class="desk-meta"><span>Travel planner · 390 × 844</span><a href="screens.html" target="_blank" rel="noopener">三屏预览 ↗</a></div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+      <div class="app" id="app" data-view="overview">
+
+        <div class="status" aria-hidden="true">
+          <span class="time">9:41</span>
+          <span class="sicons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1" opacity=".35"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.5 4.2a9 9 0 0 1 12 0M4 6.7a5.3 5.3 0 0 1 7 0M6.6 9.1a1.7 1.7 0 0 1 1.8 0"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none"><rect x=".5" y=".5" width="19" height="10" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="14.5" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg>
+          </span>
+        </div>
+
+        <section class="view view-overview" id="viewOverview" aria-label="旅行总览">
+          <div class="topbar">
+            <div class="brand">
+              <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10"/><circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none"/></svg></span>
+              <span><span class="name">沿路</span><span class="en">YANLU</span></span>
+            </div>
+            <div class="people" id="overviewPeople"></div>
+          </div>
+
+          <div class="hero">
+            <div class="eyebrow"><span class="live-dot"></span>正在规划 · 京都</div>
+            <h1>京都，<br /><em>红叶慢行</em></h1>
+            <div class="seal" aria-hidden="true">京都</div>
+            <div class="trip-meta">
+              <span class="dates">11.14 — 11.17</span>
+              <span class="rule"></span>
+              <span>4 天 3 夜</span>
+              <span class="weather"><svg class="ic"><use href="#i-sun"/></svg>18° 晴</span>
+            </div>
+          </div>
+
+          <div class="presence" id="overviewPresence"></div>
+
+          <div class="section-head">
+            <h2>按天安排</h2>
+            <span class="count" id="tripCount">4 days · 18 places</span>
+          </div>
+          <div class="day-list" id="dayList"></div>
+        </section>
+
+        <section class="view view-day" id="viewDay" aria-label="一天的行程与地图">
+          <div class="map-panel">
+            <div id="mapSvg"></div>
+            <div class="map-shade"></div>
+          </div>
+          <div class="map-topbar">
+            <button class="icon-btn" id="backBtn" type="button" aria-label="返回旅行总览">
+              <svg class="ic"><use href="#i-back"/></svg>
+            </button>
+            <div class="map-people" id="mapPeople"></div>
+          </div>
+          <div class="map-title" id="mapTitle"></div>
+          <div class="map-controls">
+            <button class="icon-btn" type="button" aria-label="地图图层"><svg class="ic"><use href="#i-layers"/></svg></button>
+            <button class="icon-btn" type="button" aria-label="回到当前位置"><svg class="ic"><use href="#i-locate"/></svg></button>
+          </div>
+          <div class="map-stat" id="mapStat"></div>
+
+          <div class="sheet">
+            <div class="sheet-grab" aria-hidden="true"></div>
+            <div class="sheet-head">
+              <div class="sheet-kicker"><span id="dayKicker"></span><span class="wx" id="dayWeather"></span></div>
+              <h2 id="dayTitle"></h2>
+              <div class="sheet-meta" id="dayMeta"></div>
+              <div class="collab">
+                <span class="live-dot"></span>
+                <span id="collabText"></span>
+                <span class="right"><span class="live-dot"></span>实时同步</span>
+              </div>
+            </div>
+            <div class="plan-wrap" id="planWrap">
+              <div class="plan-list" id="planList"></div>
+            </div>
+            <div class="sheet-hint" id="sheetHintWrap">
+              <div class="pill" id="sheetHint">
+                <svg class="ic"><use href="#i-grip"/></svg><span>按住卡片 · 拖动调整顺序</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab is-active" type="button" data-tab="trip"><svg class="ic"><use href="#i-list"/></svg><span>行程</span></button>
+          <button class="tab" type="button" data-tab="map"><svg class="ic"><use href="#i-map"/></svg><span>地图</span></button>
+          <button class="tab" type="button" data-tab="people"><svg class="ic"><use href="#i-users"/></svg><span>同行</span></button>
+        </nav>
+
+        <div class="home" aria-hidden="true"></div>
+        <div class="drag-layer" id="dragLayer"></div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="desk-foot">
+    <div class="state-switch" id="stateSwitch" role="group" aria-label="预览状态">
+      <button type="button" data-state="overview" aria-pressed="true"><i>01</i> 总览</button>
+      <button type="button" data-state="day" aria-pressed="false"><i>02</i> 行程</button>
+      <button type="button" data-state="drag" aria-pressed="false"><i>03</i> 拖动</button>
+    </div>
+    <p class="desk-hint"><b>打开任意一天，按住行程卡拖动</b> · 地图路线与时间会跟着重排</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  const params = new URLSearchParams(location.search);
+  const EMBED = params.get("embed") === "1";
+  const STILL = params.get("still") === "1";
+  const INITIAL_STATE = params.get("state") || "overview";
+  const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const app = $("#app");
+  const stage = $("#stage");
+  const mapHost = $("#mapSvg");
+  const planList = $("#planList");
+  const planWrap = $("#planWrap");
+  const dragLayer = $("#dragLayer");
+  const toastEl = $("#toast");
+
+  const KM_PER_PX = 0.0175;
+  const icon = (name, cls) => '<svg class="ic ' + (cls || "") + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+
+  const PEOPLE = [
+    { initial: "宁", name: "阿宁", bg: "#DFAB93" },
+    { initial: "M", name: "Momo", bg: "#A9B79A" },
+    { initial: "L", name: "Leo", bg: "#D7C39A" }
+  ];
+
+  const DAYS = [
+    {
+      id: "d1", n: 1, dow: "周五", date: "11.14", en: "FRI 14 NOV", kicker: "抵达",
+      title: "鸭川边的第一晚", tag: "入住已订", live: false,
+      startMin: 16 * 60 + 20, weather: { temp: 17, text: "多云", icon: "cloud" },
+      river: "鸭川", road: "四条通", areaEn: "KYOTO STATION", areaCn: "京都站",
+      presence: [62, 146], endNote: "21:00 前回旅馆 · 明早 08:00 出发",
+      stops: [
+        { id: "d1s1", name: "京都站", short: "京都站", cat: "到达 · 取票", dur: 25, booking: "已出票", x: 330, y: 248, label: { dx: -14, dy: 18, anchor: "end" } },
+        { id: "d1s2", name: "町屋旅馆", short: "町屋旅馆", cat: "入住 · 放行李", dur: 45, booking: "17:30 入住", x: 262, y: 210, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d1s3", name: "先斗町 · 川床晚餐", short: "先斗町", cat: "晚餐 · 等位", dur: 90, booking: "19:00 已订", x: 196, y: 186, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d1s4", name: "鸭川 · 三条", short: "鸭川", cat: "河畔散步", dur: 45, x: 128, y: 168, label: { dx: -14, dy: 4, anchor: "end" } }
+      ]
+    },
+    {
+      id: "d2", n: 2, dow: "周六", date: "11.15", en: "SAT 15 NOV", kicker: "红叶",
+      title: "东山，慢慢走", tag: "Momo 在编辑", live: true,
+      startMin: 9 * 60, weather: { temp: 18, text: "晴", icon: "sun" },
+      river: "鸭川", road: "四条通", areaEn: "HIGASHIYAMA", areaCn: "东山",
+      presence: [62, 150], endNote: "15:00 结束 · 顺路带一盒和果子",
+      stops: [
+        { id: "d2s1", name: "清水寺", short: "清水寺", cat: "红叶名所 · 世界遗产", dur: 90, booking: "09:00 已约", x: 316, y: 112, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d2s2", name: "三年坂 · 二年坂", short: "三年坂", cat: "石阶老街", dur: 45, x: 268, y: 148, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d2s3", name: "八坂神社", short: "八坂神社", cat: "神社 · 休憩", dur: 40, x: 216, y: 182, label: { dx: -14, dy: 4, anchor: "end" } },
+        { id: "d2s4", name: "祇园 · 花见小路", short: "花见小路", cat: "街区 · 午餐", dur: 75, booking: "13:00 已订", x: 170, y: 222, label: { dx: -14, dy: 4, anchor: "end" } },
+        { id: "d2s5", name: "鸭川 · 三条", short: "鸭川", cat: "河畔散步", dur: 45, x: 116, y: 268, label: { dx: -14, dy: 4, anchor: "end" } }
+      ]
+    },
+    {
+      id: "d3", n: 3, dow: "周日", date: "11.16", en: "SUN 16 NOV", kicker: "竹林",
+      title: "岚山，竹林与桥", tag: "小火车已订", live: false,
+      startMin: 8 * 60 + 30, weather: { temp: 16, text: "多云", icon: "cloud" },
+      river: "桂川", road: "岚电沿线", areaEn: "ARASHIYAMA", areaCn: "岚山",
+      presence: [62, 148], endNote: "14:00 结束 · 下午自由安排",
+      stops: [
+        { id: "d3s1", name: "嵯峨野小火车", short: "小火车", cat: "岚山方向 · 双号座", dur: 50, booking: "08:50 已订", x: 330, y: 104, label: { dx: -14, dy: 4, anchor: "end" } },
+        { id: "d3s2", name: "竹林小径", short: "竹林", cat: "散步 · 光影", dur: 35, x: 292, y: 142, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d3s3", name: "天龙寺", short: "天龙寺", cat: "庭园 · 曹源池", dur: 50, x: 250, y: 176, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d3s4", name: "渡月桥", short: "渡月桥", cat: "河岸 · 取景", dur: 30, x: 204, y: 210, label: { dx: -14, dy: 4, anchor: "end" } },
+        { id: "d3s5", name: "汤豆腐 · 午餐", short: "汤豆腐", cat: "午餐 · 街边小店", dur: 70, booking: "12:30 已订", x: 160, y: 240, label: { dx: -14, dy: 4, anchor: "end" } }
+      ]
+    },
+    {
+      id: "d4", n: 4, dow: "周一", date: "11.17", en: "MON 17 NOV", kicker: "鸟居",
+      title: "赶在返程前，去伏见", tag: "18:40 返程", live: false,
+      startMin: 7 * 60 + 30, weather: { temp: 17, text: "晴", icon: "sun" },
+      river: "宇治川", road: "伏见街道", areaEn: "FUSHIMI", areaCn: "伏见",
+      presence: [62, 148], endNote: "18:40 京都站出发 · 提前 20 分钟到站",
+      stops: [
+        { id: "d4s1", name: "伏见稻荷大社", short: "伏见稻荷", cat: "清晨参拜", dur: 40, x: 330, y: 122, label: { dx: -14, dy: 4, anchor: "end" } },
+        { id: "d4s2", name: "千本鸟居", short: "千本鸟居", cat: "山道 · 上行", dur: 60, x: 286, y: 164, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d4s3", name: "伏见酒藏", short: "酒藏", cat: "清酒 · 试饮", dur: 40, x: 224, y: 216, label: { dx: 14, dy: 4, anchor: "start" } },
+        { id: "d4s4", name: "京都站 · 取行李", short: "京都站", cat: "返程 · 18:40", dur: 30, booking: "返程已订", x: 318, y: 278, label: { dx: 0, dy: -16, anchor: "middle" } }
+      ]
+    }
+  ];
+
+  let activeIndex = 1;
+  let drag = null;
+  let pending = null;
+  let presenceNote = "";
+  let introPlayed = false;
+  let toastTimer = null;
+
+  /* ── helpers ─────────────────────────────── */
+  function fmt(mins) {
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+  }
+  function durText(m) {
+    if (m >= 60) {
+      const h = m / 60;
+      return (Number.isInteger(h) ? h : h.toFixed(1)) + " 小时";
+    }
+    return m + " 分钟";
+  }
+  function hoursText(mins) {
+    const h = Math.round(mins / 30) / 2;
+    return (Number.isInteger(h) ? h : h.toFixed(1)) + " 小时";
+  }
+  function legBetween(a, b) {
+    const px = Math.hypot(a.x - b.x, a.y - b.y);
+    const km = Math.round(px * KM_PER_PX * 10) / 10;
+    const taxi = km >= 1.7;
+    let mins;
+    if (taxi) mins = Math.max(5, Math.round((km / 0.3 + 3) / 5) * 5);
+    else mins = Math.max(4, Math.round(km / 0.075 / 5) * 5);
+    return { km, mins, mode: taxi ? "taxi" : "walk" };
+  }
+  function orderKm(stops) {
+    let km = 0;
+    for (let i = 0; i < stops.length - 1; i++) km += legBetween(stops[i], stops[i + 1]).km;
+    return Math.round(km * 10) / 10;
+  }
+  function schedule(day, stops) {
+    const list = stops || day.stops;
+    let t = day.startMin;
+    const rows = [];
+    list.forEach((s, i) => {
+      const row = Object.assign({}, s, { start: t });
+      t += s.dur;
+      row.leg = null;
+      if (i < list.length - 1) {
+        row.leg = legBetween(s, list[i + 1]);
+        t += row.leg.mins;
+      }
+      rows.push(row);
+    });
+    return { rows, km: orderKm(list), start: day.startMin, end: t };
+  }
+  function peopleHTML(invite) {
+    return '<div class="avatars">' + PEOPLE.map((p, i) =>
+      '<span class="avatar" style="background:' + p.bg + ';z-index:' + (PEOPLE.length - i) + '" title="' + p.name + '">' +
+      p.initial + (i === 1 ? '<i class="pd"></i>' : "") + "</span>"
+    ).join("") + "</div>" +
+      (invite ? '<button class="invite" type="button" aria-label="邀请同行的人">' + icon("plus") + "</button>" : "");
+  }
+
+  function smoothPath(points, tension) {
+    if (!points || !points.length) return "";
+    if (points.length === 1) return "M " + points[0].x + " " + points[0].y;
+    const t = tension || 0.16;
+    let d = "M " + points[0].x.toFixed(1) + " " + points[0].y.toFixed(1);
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) * t;
+      const c1y = p1.y + (p2.y - p0.y) * t;
+      const c2x = p2.x - (p3.x - p1.x) * t;
+      const c2y = p2.y - (p3.y - p1.y) * t;
+      d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + ", " + c2x.toFixed(1) + " " + c2y.toFixed(1) + ", " + p2.x.toFixed(1) + " " + p2.y.toFixed(1);
+    }
+    return d;
+  }
+
+  /* ── illustrations ───────────────────────── */
+  function miniMap(day, live) {
+    const w = 84, h = 68, pad = 11;
+    const xs = day.stops.map(s => s.x), ys = day.stops.map(s => s.y);
+    const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+    const minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    const rw = Math.max(maxX - minX, 24), rh = Math.max(maxY - minY, 24);
+    const sc = Math.min((w - pad * 2) / rw, (h - pad * 2) / rh);
+    const ox = (w - rw * sc) / 2 - minX * sc;
+    const oy = (h - rh * sc) / 2 - minY * sc;
+    const pts = day.stops.map(s => ({ x: s.x * sc + ox, y: s.y * sc + oy }));
+    const c = live
+      ? { bg: "#28342B", road: "#3A463B", block: "#313D33", water: "#425A54", route: "#ED8263", dot: "#F4EEE1" }
+      : { bg: "#EFE8D8", road: "#F9F5E9", block: "#E4DCC8", water: "#C8DCD6", route: "#C95334", dot: "#202A22" };
+    return '<svg viewBox="0 0 84 68" aria-hidden="true">' +
+      '<rect width="84" height="68" fill="' + c.bg + '"/>' +
+      '<path d="M-4 22C24 18 54 26 88 20" stroke="' + c.road + '" stroke-width="5" fill="none"/>' +
+      '<path d="M27 -4C31 24 23 44 30 72" stroke="' + c.road + '" stroke-width="4" fill="none"/>' +
+      '<path d="M62 -4C57 22 66 42 58 72" stroke="' + c.road + '" stroke-width="3" fill="none"/>' +
+      '<rect x="35" y="28" width="19" height="13" rx="3" fill="' + c.block + '"/>' +
+      '<rect x="8" y="33" width="13" height="10" rx="2.5" fill="' + c.block + '"/>' +
+      '<path d="M-4 52C20 44 42 58 88 47" stroke="' + c.water + '" stroke-width="7" fill="none" opacity=".7"/>' +
+      '<path d="' + smoothPath(pts, 0.18) + '" fill="none" stroke="' + c.route + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' +
+      pts.map((p, i) => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (i === 0 ? 2.6 : 1.8) + '" fill="' + (i === 0 ? c.route : c.dot) + '" stroke="' + c.bg + '" stroke-width="1"/>').join("") +
+      "</svg>";
+  }
+
+  function mapBase(day) {
+    return '' +
+      '<rect width="390" height="340" fill="#ECE7D8"/>' +
+      '<g opacity=".96">' +
+        '<path d="M336 -10C318 30 342 62 328 98C314 134 340 168 326 206C312 244 340 274 326 350L400 350L400 -10Z" fill="#C9D2B4"/>' +
+        '<path d="M352 -10C336 36 358 70 344 106C330 142 356 176 342 214C330 250 356 282 342 350" fill="none" stroke="#B9C5A1" stroke-width="1.2" opacity=".8"/>' +
+        '<path d="M368 -10C354 40 376 76 362 112C348 148 374 184 360 222C348 258 374 290 360 350" fill="none" stroke="#B9C5A1" stroke-width="1" opacity=".6"/>' +
+      '</g>' +
+      '<g fill="#F2EDDF" stroke="#E1DAC7" stroke-width=".8">' +
+        '<path d="M104 26 148 22 152 58 118 64 102 52Z"/>' +
+        '<path d="M166 14 214 10 218 48 178 56 160 44Z"/>' +
+        '<path d="M232 24 282 20 290 52 248 60 230 46Z"/>' +
+        '<path d="M112 74 158 68 164 108 130 118 106 102Z"/>' +
+        '<path d="M182 70 226 66 230 106 192 114 172 100Z"/>' +
+        '<path d="M244 72 298 66 306 100 270 112 238 100Z"/>' +
+        '<path d="M104 126 140 120 146 160 114 168 96 150Z"/>' +
+        '<path d="M190 124 238 118 246 156 210 166 180 152Z"/>' +
+        '<path d="M258 120 304 116 310 154 276 164 250 148Z"/>' +
+        '<path d="M112 176 150 170 158 206 124 214 104 198Z"/>' +
+        '<path d="M198 172 240 168 246 200 210 212 188 196Z"/>' +
+        '<path d="M118 234 170 228 174 260 136 268 112 254Z"/>' +
+        '<path d="M196 228 240 224 246 256 210 266 188 252Z"/>' +
+        '<path d="M108 290 154 284 160 318 122 326 100 310Z"/>' +
+        '<path d="M186 292 232 288 238 320 202 328 178 312Z"/>' +
+      '</g>' +
+      '<g fill="#E4DDCB" opacity=".58">' +
+        '<rect x="122" y="34" width="10" height="7" rx="1.5"/><rect x="137" y="31" width="7" height="11" rx="1.5"/>' +
+        '<rect x="182" y="26" width="14" height="8" rx="1.5"/><rect x="248" y="32" width="9" height="10" rx="1.5"/>' +
+        '<rect x="124" y="84" width="9" height="8" rx="1.5"/><rect x="192" y="80" width="12" height="7" rx="1.5"/>' +
+        '<rect x="264" y="80" width="8" height="10" rx="1.5"/><rect x="218" y="134" width="10" height="8" rx="1.5"/>' +
+        '<rect x="120" y="184" width="8" height="6" rx="1.5"/><rect x="208" y="180" width="12" height="7" rx="1.5"/>' +
+        '<rect x="132" y="240" width="10" height="6" rx="1.5"/><rect x="210" y="236" width="9" height="8" rx="1.5"/>' +
+        '<rect x="258" y="300" width="10" height="7" rx="1.5"/><rect x="126" y="300" width="8" height="9" rx="1.5"/>' +
+      '</g>' +
+      '<path d="M86 -10C70 46 102 96 88 150C76 198 104 248 90 350" fill="none" stroke="#ADCBC8" stroke-width="24"/>' +
+      '<path d="M86 -10C70 46 102 96 88 150C76 198 104 248 90 350" fill="none" stroke="#C7DFDC" stroke-width="11"/>' +
+      '<path d="M86 -10C70 46 102 96 88 150C76 198 104 248 90 350" fill="none" stroke="#A3C2BF" stroke-width=".8" opacity=".55"/>' +
+      '<g fill="#CAD5B3">' +
+        '<path d="M236 118C252 104 280 106 292 122C306 140 296 160 276 164C256 168 236 156 234 142Z"/>' +
+        '<path d="M308 250C318 242 336 244 342 256C348 270 336 282 322 280C308 278 302 262 308 250Z"/>' +
+      '</g>' +
+      '<g stroke="#FBF7EC" fill="none" stroke-linecap="round">' +
+        '<path d="M0 66C120 60 260 70 390 58" stroke-width="5"/>' +
+        '<path d="M0 226C120 220 260 232 390 216" stroke-width="9"/>' +
+        '<path d="M0 286C130 280 260 292 390 278" stroke-width="6"/>' +
+        '<path d="M148 -4C156 80 146 190 158 344" stroke-width="7"/>' +
+        '<path d="M236 -4C228 90 240 220 226 344" stroke-width="5"/>' +
+        '<path d="M300 -4C292 90 304 200 292 344" stroke-width="4"/>' +
+        '<path d="M104 -4C108 120 96 220 104 344" stroke-width="3"/>' +
+        '<path d="M62 -4C66 100 58 220 64 344" stroke-width="2.5"/>' +
+      '</g>' +
+      '<g stroke="#E3DBC7" stroke-width=".8" opacity=".9" fill="none">' +
+        '<path d="M0 120H390"/><path d="M0 176H390"/><path d="M0 252H390"/>' +
+        '<path d="M186 -4V344"/><path d="M270 -4V344"/><path d="M340 -4V344"/>' +
+      '</g>' +
+      '<g stroke="#FBF7EC" stroke-width="7" stroke-linecap="round">' +
+        '<path d="M72 226H102"/><path d="M73 286H102"/>' +
+      '</g>' +
+      '<g stroke="#D9D1BA" stroke-width=".9" opacity=".7">' +
+        '<path d="M72 222H102"/><path d="M72 230H102"/><path d="M73 282H102"/><path d="M73 290H102"/>' +
+      '</g>' +
+      '<g fill="#B7C49B" opacity=".8">' +
+        '<circle cx="262" cy="136" r="3.4"/><circle cx="274" cy="146" r="3"/><circle cx="254" cy="150" r="2.6"/>' +
+        '<circle cx="322" cy="262" r="2.8"/><circle cx="330" cy="270" r="2.2"/>' +
+        '<circle cx="348" cy="70" r="2.7"/><circle cx="362" cy="92" r="2.1"/><circle cx="352" cy="118" r="2.4"/>' +
+      '</g>' +
+      '<text class="map-txt water" x="80" y="178" text-anchor="middle" transform="rotate(-88 80 178)">' + day.river + '</text>' +
+      '<text class="map-txt road" x="288" y="219">' + day.road + '</text>' +
+      '<text class="map-txt area" transform="translate(376 66) rotate(90)">' + day.areaEn + '</text>' +
+      '<text class="map-txt" x="118" y="207" opacity=".62">白川</text>';
+  }
+
+  function renderMap(day, stops, opts) {
+    opts = opts || {};
+    const pts = stops.map(s => ({ x: s.x, y: s.y }));
+    const route = smoothPath(pts);
+    const ghost = opts.ghost ? smoothPath(opts.ghost.map(s => ({ x: s.x, y: s.y }))) : "";
+    const preview = !!opts.preview;
+    const pins = stops.map((s, i) => {
+      const lp = s.label || { dx: 13, dy: 4, anchor: "start" };
+      const hot = s.id === opts.hotId;
+      return '<g transform="translate(' + s.x + ',' + s.y + ')">' +
+        (hot ? '<circle class="hot-ring" r="15" fill="none" stroke="#CE4B2B" stroke-width="1.4" stroke-dasharray="2 3"/>' : "") +
+        '<g class="pin-inner" style="--i:' + i + '">' +
+          '<circle r="11.2" fill="' + (hot ? "#CE4B2B" : "#202A23") + '" stroke="#F7F2E6" stroke-width="1.7"/>' +
+          '<text y="3.4">' + (i + 1) + "</text>" +
+        "</g>" +
+        '<text class="pin-label" x="' + lp.dx + '" y="' + lp.dy + '" text-anchor="' + lp.anchor + '">' + (s.short || s.name) + "</text>" +
+      "</g>";
+    }).join("");
+
+    mapHost.innerHTML = '<svg class="map-svg ' + (opts.animatePins === false ? "noanim" : "") + '" viewBox="0 0 390 340" preserveAspectRatio="xMidYMin slice" role="img" aria-label="' + day.title + '路线地图">' +
+      mapBase(day) +
+      '<g class="route-group">' +
+        (ghost ? '<path class="route-ghost" d="' + ghost + '" fill="none" stroke="#746D5C" stroke-width="2.1" stroke-dasharray="2 4" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>' : "") +
+        '<path class="route-halo" d="' + route + '" fill="none" stroke="#F7F2E5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>' +
+        '<path class="route-line ' + (preview ? "route-preview" : "") + '" d="' + route + '" fill="none" stroke="' + (preview ? "#D0502E" : "#C94B2B") + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"' + (preview ? ' stroke-dasharray="7 6"' : "") + "/>" +
+      "</g>" +
+      '<g class="pins">' + pins + "</g>" +
+      '<g class="map-collab" transform="translate(' + day.presence[0] + "," + day.presence[1] + ')">' +
+        '<g class="collab-float">' +
+          '<rect x="-41" y="-28" width="54" height="17" rx="8.5" fill="#FBF5E9" stroke="#E4D4BC" stroke-width=".8"/>' +
+          '<text x="-14" y="-16.5" text-anchor="middle" font-size="7.6" fill="#72523F" font-family="PingFang SC, sans-serif">阿宁在看</text>' +
+          '<path d="M-8 -11l-3 5h7z" fill="#DCAA92"/>' +
+          '<circle cx="0" cy="6" r="8" fill="#DCAA92" stroke="#FBF5E9" stroke-width="2"/>' +
+          '<text y="8.6" text-anchor="middle" font-size="6.5" fill="#433026" font-family="Songti SC, serif">宁</text>' +
+        "</g>" +
+      "</g>" +
+    "</svg>";
+
+    updateStat(stops, preview ? opts.delta : null);
+    if (opts.animateRoute) animateRoute();
+  }
+
+  function animateRoute() {
+    const line = mapHost.querySelector(".route-line");
+    if (!line || REDUCED || STILL) return;
+    try {
+      const len = line.getTotalLength();
+      line.style.strokeDasharray = String(len);
+      line.style.strokeDashoffset = String(len);
+      line.animate(
+        [{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
+        { duration: 900, easing: "cubic-bezier(.3,.8,.2,1)", fill: "forwards" }
+      );
+    } catch (e) { /* no-op */ }
+  }
+
+  function updateStat(stops, delta) {
+    const el = $("#mapStat");
+    const km = orderKm(stops);
+    if (delta !== null && delta !== undefined) {
+      const sign = delta > 0 ? "+" : "";
+      el.className = "map-stat is-preview";
+      el.innerHTML = icon("route", "xs") + "<span>预览 · " + km.toFixed(1) + " km</span>" +
+        (Math.abs(delta) >= 0.05 ? '<span class="delta">' + sign + delta.toFixed(1) + " km</span>" : "");
+    } else {
+      el.className = "map-stat";
+      el.innerHTML = icon("route", "xs") + "<span>" + km.toFixed(1) + " km</span>" +
+        '<span class="sep2"></span><span>' + stops.length + " 站</span>";
+    }
+  }
+
+  function metaHTML(st) {
+    return "<span>" + icon("pin", "xs") + st.rows.length + " 处</span>" +
+      '<i class="sep"></i><span>' + icon("route", "xs") + st.km.toFixed(1) + " km</span>" +
+      '<i class="sep"></i><span>' + icon("clock", "xs") + "约 " + hoursText(st.end - st.start) + "</span>";
+  }
+
+  function planHTML(day) {
+    const st = schedule(day);
+    let html = st.rows.map(row => {
+      const leg = row.leg ? '<div class="leg">' +
+        '<div class="ln"></div><div class="node"></div>' +
+        '<div class="txt">' + icon(row.leg.mode === "taxi" ? "taxi" : "walk", "xs") +
+          "<span>" + (row.leg.mode === "taxi" ? "打车" : "步行") + " " + row.leg.mins + " 分钟</span>" +
+          '<i class="dotsep"></i><span>' + row.leg.km.toFixed(1) + " km</span></div>" +
+        (row.via ? '<div class="via">经 ' + row.via + "</div>" : "") +
+        "</div>" : "";
+      return '<div class="plan-item" data-id="' + row.id + '">' +
+        '<div class="plan-row">' +
+          '<div class="plan-time">' + fmt(row.start) + "</div>" +
+          '<div class="plan-node"></div>' +
+          '<div class="stop-card">' +
+            '<div class="stop-main">' +
+              '<div class="stop-title-row"><span class="stop-title">' + row.name + "</span>" +
+                (row.booking ? '<span class="badge-book">' + icon("check") + row.booking + "</span>" : "") +
+              "</div>" +
+              '<div class="stop-sub"><span>' + row.cat + '</span><i class="dotsep"></i><span>' + durText(row.dur) + "</span></div>" +
+            "</div>" +
+            '<span class="grip" aria-hidden="true"><svg><use href="#i-grip"/></svg></span>' +
+          "</div>" +
+        "</div>" + leg +
+      "</div>";
+    }).join("");
+    if (st.rows.length <= 4 && day.endNote) {
+      html += '<div class="plan-end">' + day.endNote + "</div>";
+    }
+    return html;
+  }
+
+  /* ── overview ────────────────────────────── */
+  function renderOverview(opts) {
+    opts = opts || {};
+    $("#overviewPeople").innerHTML = peopleHTML(true);
+    $("#mapPeople").innerHTML = peopleHTML(false) + '<span class="pcount">3</span>';
+    $("#tripCount").textContent = "4 days · " + DAYS.reduce((n, d) => n + d.stops.length, 0) + " places";
+    const presence = $("#overviewPresence");
+    presence.innerHTML = '<span class="live-dot"></span><span class="txt">' +
+      (presenceNote || "<b>Momo</b> 刚调整了第 2 天的顺序") +
+      '</span><span class="avatar xs" style="background:#A9B79A">M</span><span class="when">刚刚</span>';
+
+    const list = $("#dayList");
+    list.innerHTML = DAYS.map((day, i) => {
+      const st = schedule(day);
+      const tag = day.live ? '<span class="edit">' + day.tag + "</span>" : "<span>" + day.tag + "</span>";
+      return '<button class="day-card' + (day.live ? " is-live" : "") + '" type="button" data-day="' + i + '" aria-label="打开第 ' + day.n + " 天：" + day.title + '">' +
+        '<div class="day-date"><span class="dow">' + day.dow + '</span><span class="num">' + day.date.split(".")[1] + '</span><span class="mon">NOV</span></div>' +
+        '<div class="day-info">' +
+          '<div class="day-kicker">' + (day.live ? '<span class="live-dot"></span>' : "") + "DAY 0" + day.n + " · " + day.kicker + "</div>" +
+          '<div class="day-title">' + day.title + "</div>" +
+          '<div class="day-meta"><span>' + day.stops.length + ' 站</span><i class="sep"></i><span>' + st.km.toFixed(1) + ' km</span><i class="sep"></i>' + tag + "</div>" +
+        "</div>" +
+        '<div class="mini">' + miniMap(day, day.live) + "</div>" +
+      "</button>";
+    }).join("");
+
+    if (opts.intro && !STILL && !REDUCED && !introPlayed) {
+      introPlayed = true;
+      list.classList.add("intro");
+      setTimeout(() => list.classList.remove("intro"), 1400);
+    }
+  }
+
+  /* ── day view ────────────────────────────── */
+  function paintDay(index, opts) {
+    opts = opts || {};
+    const day = DAYS[index];
+    const st = schedule(day);
+    $("#dayKicker").textContent = "DAY 0" + day.n + " · " + day.en;
+    $("#dayWeather").innerHTML = icon(day.weather.icon) + " " + day.weather.temp + "° " + day.weather.text;
+    $("#dayTitle").textContent = day.title;
+    $("#dayMeta").innerHTML = metaHTML(st);
+    $("#mapTitle").innerHTML = "<b>DAY 0" + day.n + "</b><span class=\"mdot\"></span>" + day.areaCn;
+    $("#collabText").innerHTML = "<b>" + (day.n === 2 ? "阿宁" : "Momo") + "</b> 正在看这一天";
+    planList.dataset.count = String(day.stops.length);
+    planList.innerHTML = planHTML(day);
+    setHint(false);
+    renderMap(day, day.stops, { animateRoute: !!opts.animateRoute, animatePins: !STILL });
+    planWrap.scrollTop = 0;
+  }
+
+  function showDay(index, opts) {
+    opts = opts || {};
+    if (drag) cleanupDrag();
+    toastEl.classList.remove("show");
+    activeIndex = index;
+    const instant = opts.instant || STILL;
+    if (instant) app.classList.add("instant");
+    else app.classList.remove("instant");
+    paintDay(index, { animateRoute: opts.animateRoute !== false && !instant });
+    app.dataset.view = "day";
+    $("#viewOverview").setAttribute("aria-hidden", "true");
+    $("#viewDay").setAttribute("aria-hidden", "false");
+    setSwitcher("day");
+    if (instant && !STILL) {
+      setTimeout(() => app.classList.remove("instant"), 520);
+    }
+  }
+
+  function showOverview() {
+    if (drag) cleanupDrag();
+    toastEl.classList.remove("show");
+    if (!STILL) app.classList.remove("instant");
+    app.dataset.view = "overview";
+    $("#viewOverview").setAttribute("aria-hidden", "false");
+    $("#viewDay").setAttribute("aria-hidden", "true");
+    renderOverview();
+    setSwitcher("overview");
+  }
+
+  function setSwitcher(state) {
+    $$("#stateSwitch button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.state === state)));
+  }
+
+  function setHint(isDragging) {
+    const el = $("#sheetHint");
+    el.classList.toggle("hot", !!isDragging);
+    el.innerHTML = isDragging
+      ? icon("spark", "xs") + "<span>松手保存 · 同伴会实时看到</span>"
+      : icon("grip", "xs") + "<span>按住卡片 · 拖动调整顺序</span>";
+  }
+
+  /* ── drag + live reroute ─────────────────── */
+  function activeStops() {
+    return DAYS[activeIndex].stops;
+  }
+
+  function startDrag(item, clientY) {
+    if (drag) return;
+    const appRect = app.getBoundingClientRect();
+    const scale = appRect.width / 390;
+    const rowEl = item.querySelector(".plan-row");
+    const rowRect = rowEl.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const itemLeft = (itemRect.left - appRect.left) / scale;
+    const rowTop = (rowRect.top - appRect.top) / scale;
+    const ph = document.createElement("div");
+    ph.className = "drop-slot";
+    ph.innerHTML = '<div class="ds-row"><div class="ds-time"></div><div class="ds-node"></div><div class="ds-card"><span>松手放在这里</span></div></div><div class="ds-leg"></div>';
+    ph.style.height = (itemRect.height / scale) + "px";
+    item.parentNode.insertBefore(ph, item);
+    dragLayer.appendChild(item);
+    item.classList.add("is-floating");
+    item.style.left = itemLeft + "px";
+    item.style.top = rowTop + "px";
+    item.style.width = (itemRect.width / scale) + "px";
+
+    const ids = activeStops().map(s => s.id);
+    drag = {
+      item: item,
+      ph: ph,
+      from: ids.indexOf(item.dataset.id),
+      target: -1,
+      offsetY: (clientY - rowRect.top) / scale,
+      appRect: appRect,
+      scale: scale,
+      previewOrder: null,
+      delta: 0
+    };
+    app.classList.add("is-dragging");
+    setHint(true);
+    $("#collabText").innerHTML = "<b>Momo</b> 正在看着这次调整";
+    updateTarget(clientY);
+  }
+
+  function moveFloating(clientY) {
+    if (!drag) return;
+    const y = (clientY - drag.appRect.top) / drag.scale - drag.offsetY;
+    drag.item.style.top = Math.max(56, Math.min(y, 744)) + "px";
+  }
+
+  function updateTarget(clientY) {
+    if (!drag) return;
+    const cards = $$("#planList .plan-item");
+    let target = cards.length;
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].querySelector(".plan-row").getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) { target = i; break; }
+    }
+    if (target === drag.target) return;
+    drag.target = target;
+    const before = cards[target] || null;
+    if (before) planList.insertBefore(drag.ph, before);
+    else planList.appendChild(drag.ph);
+
+    const base = activeStops();
+    const dragged = base.find(s => s.id === drag.item.dataset.id);
+    const rest = base.filter(s => s.id !== drag.item.dataset.id);
+    const order = rest.slice();
+    order.splice(Math.min(target, order.length), 0, dragged);
+    drag.previewOrder = order;
+    drag.delta = Math.round((orderKm(order) - orderKm(base)) * 10) / 10;
+    const previewSt = schedule(DAYS[activeIndex], order);
+    paintPreviewLabels(previewSt, dragged.id);
+    $("#dayMeta").innerHTML = metaHTML(previewSt);
+    renderMap(DAYS[activeIndex], order, { preview: true, ghost: base, hotId: dragged.id, delta: drag.delta, animatePins: false });
+  }
+
+  function paintPreviewLabels(st, draggedId) {
+    const byId = {};
+    st.rows.forEach(r => { byId[r.id] = r; });
+    $$("#planList .plan-item").forEach(el => {
+      const row = byId[el.dataset.id];
+      if (!row) return;
+      const timeEl = el.querySelector(".plan-time");
+      if (timeEl) timeEl.textContent = fmt(row.start);
+      const legEl = el.querySelector(".leg");
+      if (legEl) {
+        if (row.leg) {
+          legEl.style.display = "";
+          const txt = legEl.querySelector(".txt");
+          if (txt) {
+            txt.innerHTML = icon(row.leg.mode === "taxi" ? "taxi" : "walk", "xs") +
+              "<span>" + (row.leg.mode === "taxi" ? "打车" : "步行") + " " + row.leg.mins + " 分钟</span>" +
+              '<i class="dotsep"></i><span>' + row.leg.km.toFixed(1) + " km</span>";
+          }
+        } else {
+          legEl.style.display = "none";
+        }
+      }
+    });
+    if (drag && drag.ph) {
+      const row = byId[draggedId];
+      const slotTime = drag.ph.querySelector(".ds-time");
+      if (slotTime && row) slotTime.textContent = fmt(row.start);
+    }
+  }
+
+  function cleanupDrag() {
+    app.classList.remove("is-dragging");
+    if (drag) {
+      if (drag.ph && drag.ph.parentNode) drag.ph.remove();
+      if (drag.item && drag.item.parentNode) drag.item.remove();
+    }
+    drag = null;
+    dragLayer.innerHTML = "";
+    setHint(false);
+  }
+
+  function onPointerDown(e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (app.dataset.view !== "day") return;
+    const item = e.target.closest(".plan-item");
+    if (!item || !planList.contains(item)) return;
+    pending = { item: item, x: e.clientX, y: e.clientY };
+    document.addEventListener("pointermove", onPointerMove, { passive: false });
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerCancel);
+  }
+
+  function onPointerMove(e) {
+    if (pending && !drag) {
+      if (Math.hypot(e.clientX - pending.x, e.clientY - pending.y) < 6) return;
+      const item = pending.item;
+      pending = null;
+      startDrag(item, e.clientY);
+    } else if (pending && drag) {
+      pending = null;
+    }
+    if (!drag) return;
+    e.preventDefault();
+    moveFloating(e.clientY);
+    updateTarget(e.clientY);
+  }
+
+  function detachPointer() {
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", onPointerUp);
+    document.removeEventListener("pointercancel", onPointerCancel);
+  }
+
+  function onPointerUp() {
+    detachPointer();
+    pending = null;
+    if (!drag) return;
+    finishDrag();
+  }
+
+  function onPointerCancel() {
+    detachPointer();
+    pending = null;
+    if (drag) {
+      const idx = activeIndex;
+      cleanupDrag();
+      paintDay(idx);
+    }
+  }
+
+  function finishDrag() {
+    if (!drag || !drag.previewOrder) { cleanupDrag(); paintDay(activeIndex); return; }
+    const day = DAYS[activeIndex];
+    const oldStops = day.stops.slice();
+    const oldIds = oldStops.map(s => s.id).join("|");
+    const newOrder = drag.previewOrder;
+    const newIds = newOrder.map(s => s.id).join("|");
+    if (oldIds === newIds) {
+      cleanupDrag();
+      paintDay(activeIndex);
+      return;
+    }
+
+    const oldRects = {};
+    $$("#planList .plan-item").forEach(el => { oldRects[el.dataset.id] = el.getBoundingClientRect(); });
+
+    const byId = {};
+    oldStops.forEach(s => { byId[s.id] = s; });
+    day.stops = newOrder.map(s => byId[s.id]);
+    const beforeKm = orderKm(oldStops);
+    cleanupDrag();
+    paintDay(activeIndex, { animateRoute: true });
+
+    requestAnimationFrame(() => {
+      $$("#planList .plan-item").forEach(el => {
+        const o = oldRects[el.dataset.id];
+        if (!o) {
+          el.animate([{ opacity: 0, transform: "scale(.97)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "ease-out" });
+          return;
+        }
+        const n = el.getBoundingClientRect();
+        const dx = o.left - n.left;
+        const dy = o.top - n.top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          el.animate(
+            [{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }],
+            { duration: 380, easing: "cubic-bezier(.22,.8,.2,1)" }
+          );
+        }
+      });
+    });
+
+    const st = schedule(day);
+    const delta = Math.round((st.km - beforeKm) * 10) / 10;
+    presenceNote = "<b>Momo</b> 已经看到你对第 " + day.n + " 天的调整";
+    renderOverview();
+    showToast(
+      "第 " + day.n + " 天已重排 · " + st.km.toFixed(1) + " km" +
+      (Math.abs(delta) >= 0.05 ? "（" + (delta > 0 ? "+" : "") + delta.toFixed(1) + "）" : ""),
+      "撤销",
+      function () {
+        day.stops = oldStops;
+        paintDay(activeIndex, { animateRoute: true });
+        renderOverview();
+        showToast("已恢复原来的顺序");
+      }
+    );
+    setSwitcher("day");
+  }
+
+  function enterStaticDrag() {
+    if (drag) {
+      const idx = activeIndex;
+      cleanupDrag();
+      paintDay(idx);
+    }
+    if (app.dataset.view !== "day") return;
+    const item = planList.querySelector('[data-id="d2s4"]');
+    const target = planList.querySelector('[data-id="d2s2"]');
+    if (!item || !target) return;
+    const row = item.querySelector(".plan-row").getBoundingClientRect();
+    startDrag(item, row.top + row.height / 2);
+    const tr = target.querySelector(".plan-row").getBoundingClientRect();
+    updateTarget(tr.top + 2);
+    const phRow = drag.ph.querySelector(".ds-row").getBoundingClientRect();
+    const ar = app.getBoundingClientRect();
+    const scale = ar.width / 390;
+    drag.item.style.top = ((phRow.top - ar.top) / scale + 31) + "px";
+    drag.item.style.left = ((phRow.left - ar.left) / scale + 5) + "px";
+    drag.item.classList.add("is-static");
+    setSwitcher("drag");
+  }
+
+  function showToast(text, actionLabel, action) {
+    toastEl.innerHTML = "<span>" + text + "</span>" + (actionLabel ? "<button type=\"button\">" + actionLabel + "</button>" : "");
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    const btn = toastEl.querySelector("button");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        toastEl.classList.remove("show");
+        if (typeof action === "function") action();
+      });
+    }
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3600);
+  }
+
+  /* ── events ──────────────────────────────── */
+  planList.addEventListener("pointerdown", onPointerDown);
+  $("#backBtn").addEventListener("click", showOverview);
+  $("#dayList").addEventListener("click", function (e) {
+    const card = e.target.closest(".day-card");
+    if (card) showDay(Number(card.dataset.day));
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && app.dataset.view === "day") showOverview();
+  });
+  $$(".tab").forEach(tab => {
+    tab.addEventListener("click", function () {
+      const key = tab.dataset.tab;
+      if (key === "map") {
+        showDay(activeIndex, { animateRoute: true });
+      } else if (key === "people") {
+        showToast("阿宁、Momo、Leo 都在线 · 改动会实时同步");
+      }
+    });
+  });
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".invite")) {
+      showToast("邀请链接已复制 · 发给同行的朋友");
+    }
+  });
+  $$(".map-controls .icon-btn").forEach(function (btn, i) {
+    btn.addEventListener("click", function () {
+      showToast(i === 0 ? "已切换到路线视图" : "已回到今天的路线");
+    });
+  });
+  $$("#stateSwitch button").forEach(btn => {
+    btn.addEventListener("click", function () {
+      const state = btn.dataset.state;
+      if (state === "overview") {
+        if (drag) cleanupDrag();
+        showOverview();
+      } else if (state === "day") {
+        if (drag) cleanupDrag();
+        showDay(activeIndex, { animateRoute: true });
+      } else if (state === "drag") {
+        if (drag) cleanupDrag();
+        showDay(1, { instant: true });
+        setSwitcher("drag");
+        requestAnimationFrame(() => requestAnimationFrame(enterStaticDrag));
+      }
+    });
+  });
+
+  function fitStage() {
+    if (EMBED) {
+      stage.style.width = "390px";
+      stage.style.height = "844px";
+      app.style.transform = "none";
+      return;
+    }
+    const mobile = window.innerWidth <= 640;
+    document.documentElement.classList.toggle("mobile-mode", mobile);
+    const s = mobile
+      ? Math.min((window.innerWidth - 16) / 390, (window.innerHeight - 16) / 844)
+      : Math.min(1, (window.innerHeight - 186) / 844, (window.innerWidth - 48) / 390);
+    stage.style.width = Math.round(390 * s) + "px";
+    stage.style.height = Math.round(844 * s) + "px";
+    app.style.transform = "scale(" + s + ")";
+  }
+  window.addEventListener("resize", fitStage);
+
+  /* ── boot ────────────────────────────────── */
+  $("#overviewPeople").innerHTML = peopleHTML(true);
+  $("#mapPeople").innerHTML = peopleHTML(false) + '<span class="pcount">3</span>';
+  renderOverview({ intro: INITIAL_STATE === "overview" });
+  fitStage();
+
+  if (INITIAL_STATE === "day" || INITIAL_STATE === "drag") {
+    showDay(1, { instant: true, animateRoute: false });
+    setSwitcher(INITIAL_STATE === "drag" ? "drag" : "day");
+    if (INITIAL_STATE === "drag") {
+      requestAnimationFrame(() => requestAnimationFrame(enterStaticDrag));
+    }
+  } else {
+    setSwitcher("overview");
+  }
+})();
+</script>
+</body>
+</html>
