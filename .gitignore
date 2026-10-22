@@ -44,7 +44,11 @@ ios/App/Pods/
 ios/App/build/
 ios/App/DerivedData/
 
-# Map data / large assets
+# Map data / offline packs / routing graphs
+map-packs/
+graph-cache/
 *.pmtiles
 *.mbtiles
 *.osm.pbf
+*.gh
+*.graph
