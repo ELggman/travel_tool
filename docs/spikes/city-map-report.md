@@ -146,6 +146,7 @@
   - 浏览器 A*：重庆 2.3 ms、武汉 0.8 ms、贵阳 1.2 ms。
   - 飞行模式 + 关闭 Wi-Fi/数据后强制停止再启动：地图和 A* 仍正常，无外部网络。
   - 内存：TOTAL PSS **126.6 MB**，TOTAL RSS **239.0 MB**（模拟器，仅参考）。
+- 2026-10-22：用户已手动把 APK 传到物理手机并启动成功；物理机上的三城/断网/冷启动量化仍待补。
 - 关键地点标签在 Android 上同样显示（当前是 HTML overlay，不依赖 glyphs）：[Android 多地点标签](screenshots/android-labels-chongqing.png)。
 - 截图：[Android 重庆](screenshots/android-chongqing.png)、[Android 武汉·飞行模式](screenshots/android-wuhan-offline.png)、[Android 贵阳](screenshots/android-guiyang.png)。
 
