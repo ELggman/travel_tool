@@ -137,7 +137,7 @@ export function PackSheet({
         <span>已下载 {downloaded.length} 个城市</span>
         <strong>占用 {formatBytes(used)}</strong>
       </footer>
-      <p className="sheet-note">M1 演示：底图与路网随展示包提供；下载接口按城市包读取 manifest / 路网，后续替换为对象存储 CDN。</p>
+      <p className="sheet-note">真实归档下载：下载后解压到本机 CacheStorage，地图与路网都从本机读取；删除会真正清理缓存。生产环境替换为 OSS/COS CDN 地址。</p>
     </Sheet>
   );
 }
@@ -252,6 +252,33 @@ export function StopSheet({ stop, index, isLast, onClose, onChange, onDelete }: 
       <div className="sheet-actions">
         <button className="primary" onClick={onClose}>完成</button>
         <button className="text-btn danger" onClick={() => { onDelete(); onClose(); }}>删除这个地点</button>
+      </div>
+    </Sheet>
+  );
+}
+
+type ConfirmSheetProps = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+};
+
+export function ConfirmSheet({ title, body, confirmLabel, onConfirm, onClose }: ConfirmSheetProps) {
+  return (
+    <Sheet onClose={onClose}>
+      <header className="sheet-head">
+        <div>
+          <span className="eyebrow">CONFIRM</span>
+          <h2>{title}</h2>
+          <p>{body}</p>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
+      </header>
+      <div className="sheet-actions">
+        <button className="primary danger-solid" onClick={onConfirm}>{confirmLabel}</button>
+        <button className="text-btn" onClick={onClose}>取消</button>
       </div>
     </Sheet>
   );

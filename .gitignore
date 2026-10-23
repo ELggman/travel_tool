@@ -69,3 +69,5 @@ spikes/out/osrm-geometries/
 app/node_modules/
 app/dist/
 app/public/packs/
+app/pack-source/
+app/pack-server/

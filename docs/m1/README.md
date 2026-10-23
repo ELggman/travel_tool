@@ -1,5 +1,7 @@
 # M1 · 省份/城市地图包 + 单日行程闭环
 
+> 历史记录：M1 的“下载/删除”是本地演示，底图与路网随 App 打包；M2.1 已替换为真实 `.yanlu-pack.zip` 下载、CacheStorage 存储和真实删除。见 [M2.1 记录](../m2/README.md)。
+
 - 日期：2026-10-23
 - 状态：已在 Web + Android 35 arm64 模拟器跑通；物理真机可手动安装 APK
 - 代码：[app/](../../app/)、[Android 壳](../../android/README.md)

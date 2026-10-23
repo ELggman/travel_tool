@@ -7,10 +7,12 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import MapView from './components/MapView';
-import { AddPlaceSheet, PackSheet, StopSheet } from './components/Sheets';
+import { AddPlaceSheet, ConfirmSheet, PackSheet, StopSheet } from './components/Sheets';
 import { useRouting } from './hooks/useRouting';
+import { deleteCachedPack, downloadPackArchive, listCachedPacks } from './lib/packCache';
+import { releaseTileUrls } from './lib/tileStore';
 import {
-  availableCities, cityPlaces, makeStop, packs, provinceOf, seedTrip, themes,
+  availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, LegRoute, Stop, Theme, Transport, Trip } from './data/types';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
@@ -21,32 +23,29 @@ type Persisted = {
   trips: Record<AvailableCityId, Trip>;
 };
 
-const STORAGE_KEY = 'yanlu.m1.v1';
+const STORAGE_KEY = 'yanlu.m2.v1';
 
 function initialPersisted(): Persisted {
+  const trips = {} as Record<AvailableCityId, Trip>;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Persisted>;
-      const downloaded: CityId[] = Array.isArray(saved.downloaded) && saved.downloaded.length
-        ? saved.downloaded.filter((id): id is CityId => id in packs)
-        : ['chongqing'];
-      const trips = {} as Record<AvailableCityId, Trip>;
       for (const city of availableCities) {
         const savedTrip = saved.trips?.[city];
         trips[city] = savedTrip && savedTrip.day?.stops?.length ? savedTrip : seedTrip(city);
       }
-      const active = saved.activeCity && downloaded.includes(saved.activeCity) && availableCities.includes(saved.activeCity as AvailableCityId)
+      const active = saved.activeCity && availableCities.includes(saved.activeCity as AvailableCityId)
         ? saved.activeCity as AvailableCityId
-        : (downloaded.find((id): id is AvailableCityId => availableCities.includes(id as AvailableCityId)) ?? 'chongqing');
-      return { activeCity: active, downloaded, trips };
+        : 'chongqing';
+      // CacheStorage is the source of truth; boot() fills this list asynchronously.
+      return { activeCity: active, downloaded: [], trips };
     }
   } catch {
     // fall through to seed
   }
-  const trips = {} as Record<AvailableCityId, Trip>;
   for (const city of availableCities) trips[city] = seedTrip(city);
-  return { activeCity: 'chongqing', downloaded: ['chongqing'], trips };
+  return { activeCity: 'chongqing', downloaded: [], trips };
 }
 
 function themeVars(theme: Theme): CSSProperties {
@@ -76,6 +75,8 @@ function App() {
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Partial<Record<CityId, number>>>({});
   const [packError, setPackError] = useState<string | null>(null);
+  const [deleteConfirmCity, setDeleteConfirmCity] = useState<AvailableCityId | null>(null);
+  const [booted, setBooted] = useState(false);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
@@ -86,12 +87,29 @@ function App() {
   const previewTheme = previewCity ? themes[previewCity] : baseTheme;
   const pageTheme = packOpen ? previewTheme : baseTheme;
 
-  const { legs, loading } = useRouting(activeCity, stops);
+  const { legs, loading } = useRouting(activeCity, stops, state.downloaded.includes(activeCity));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listCachedPacks()
+      .then((keys) => {
+        if (cancelled) return;
+        const downloaded = keys.filter((id): id is AvailableCityId => availableCities.includes(id as AvailableCityId));
+        setState((prev) => {
+          const active = downloaded.includes(prev.activeCity) ? prev.activeCity : (downloaded[0] ?? 'chongqing');
+          return { ...prev, downloaded, activeCity: active };
+        });
+        if (!downloaded.length) setPackOpen(true);
+      })
+      .catch(() => setPackOpen(true))
+      .finally(() => setBooted(true));
+    return () => { cancelled = true; };
+  }, []);
 
   const timeline = useMemo(() => {
     let cursor = parseTime(trip.day.startTime);
@@ -177,38 +195,23 @@ function App() {
   const downloadPack = async (city: AvailableCityId) => {
     if (!packs[city].available) return;
     setPackError(null);
-    setProgress((prev) => ({ ...prev, [city]: 2 }));
+    setProgress((prev) => ({ ...prev, [city]: 1 }));
     try {
-      const manifestResponse = await fetch(`/packs/${city}/manifest.json`);
-      if (!manifestResponse.ok) throw new Error(`manifest ${manifestResponse.status}`);
-      const manifest = await manifestResponse.json() as { sizeBytes?: number; walkBytes?: number; carBytes?: number; walk?: string; car?: string };
-      const total = (manifest.walkBytes ?? 0) + (manifest.carBytes ?? 0) || manifest.sizeBytes || packs[city].sizeBytes;
-      let loaded = 0;
-      for (const file of [manifest.walk ?? 'walk.json', manifest.car ?? 'car.json']) {
-        const response = await fetch(`/packs/${city}/${file}`);
-        if (!response.ok) throw new Error(`${file} ${response.status}`);
-        if (response.body) {
-          const reader = response.body.getReader();
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            loaded += value.byteLength;
-            const pct = Math.min(99, Math.round((loaded / total) * 100));
-            setProgress((prev) => ({ ...prev, [city]: pct }));
-          }
-        } else {
-          loaded += Number(response.headers.get('content-length') ?? 0);
-        }
-      }
-      setProgress((prev) => ({ ...prev, [city]: 100 }));
-      setState((prev) => ({
-        ...prev,
-        downloaded: prev.downloaded.includes(city) ? prev.downloaded : [...prev.downloaded, city],
-        trips: prev.trips[city] ? prev.trips : { ...prev.trips, [city]: seedTrip(city) },
-      }));
+      await downloadPackArchive(city, (pct) => setProgress((prev) => ({ ...prev, [city]: pct })));
+      setState((prev) => {
+        const downloaded = prev.downloaded.includes(city) ? prev.downloaded : [...prev.downloaded, city];
+        const active = prev.downloaded.length === 0 ? city : prev.activeCity;
+        return {
+          ...prev,
+          downloaded,
+          activeCity: active,
+          trips: prev.trips[city] ? prev.trips : { ...prev.trips, [city]: seedTrip(city) },
+        };
+      });
+      setPreviewCity(city);
       window.setTimeout(() => setProgress((prev) => {
         const next = { ...prev }; delete next[city]; return next;
-      }), 700);
+      }), 900);
     } catch (err) {
       setPackError(`下载失败：${err instanceof Error ? err.message : String(err)}`);
       setProgress((prev) => {
@@ -217,9 +220,17 @@ function App() {
     }
   };
 
-  const deletePack = (city: AvailableCityId) => {
+  const requestDelete = (city: AvailableCityId) => {
     if (state.downloaded.length <= 1) { setPackError('至少保留一个城市地图包。'); return; }
-    if (!window.confirm(`删除 ${packs[city].city} 的离线地图包？`)) return;
+    setDeleteConfirmCity(city);
+  };
+
+  const confirmDelete = async () => {
+    const city = deleteConfirmCity;
+    if (!city) return;
+    setDeleteConfirmCity(null);
+    await deleteCachedPack(city);
+    releaseTileUrls(city);
     setState((prev) => {
       const downloaded = prev.downloaded.filter((id) => id !== city);
       const active = prev.activeCity === city
@@ -227,13 +238,57 @@ function App() {
         : prev.activeCity;
       return { ...prev, downloaded, activeCity: active };
     });
-    if ('caches' in window) caches.delete(`yanlu-pack-${city}`).catch(() => {});
     setPreviewCity(null);
   };
 
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
   const titleParts = pack.title.split('，');
+  const packSheet = packOpen ? (
+    <PackSheet
+      activeCity={activeCity}
+      downloaded={state.downloaded}
+      previewCity={previewCity}
+      progress={progress}
+      error={packError}
+      onClose={() => { setPackOpen(false); setPreviewCity(null); setPackError(null); }}
+      onPreview={setPreviewCity}
+      onSelect={selectCity}
+      onDownload={downloadPack}
+      onDelete={requestDelete}
+    />
+  ) : null;
+
+  if (!booted) {
+    return <div className="boot-screen" style={themeVars(pageTheme)}><span>正在读取本机地图包…</span></div>;
+  }
+
+  if (!state.downloaded.length) {
+    return (
+      <div className="app onboarding" style={themeVars(pageTheme)}>
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                <path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10" />
+                <circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none" />
+                <circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span><b>沿路</b><small>YANLU</small></span>
+          </div>
+        </header>
+        <main className="first-run">
+          <span className="eyebrow">START HERE · OFFLINE FIRST</span>
+          <h1>先下载<br /><em>一座城市</em></h1>
+          <p>每座城市是一个独立的离线包。下载后，地图、路网和算路都保存在这台设备上，断网也能继续编辑。</p>
+          <button className="primary first-run-cta" onClick={() => setPackOpen(true)}>选择城市地图包 →</button>
+          <div className="first-run-note">真实归档下载 · 本机缓存 · 可随时删除</div>
+        </main>
+        {packSheet}
+      </div>
+    );
+  }
 
   return (
     <div className="app" style={themeVars(pageTheme)} data-city={activeCity}>
@@ -335,20 +390,7 @@ function App() {
         </footer>
       </main>
 
-      {packOpen && (
-        <PackSheet
-          activeCity={activeCity}
-          downloaded={state.downloaded}
-          previewCity={previewCity}
-          progress={progress}
-          error={packError}
-          onClose={() => { setPackOpen(false); setPreviewCity(null); setPackError(null); }}
-          onPreview={setPreviewCity}
-          onSelect={selectCity}
-          onDownload={downloadPack}
-          onDelete={deletePack}
-        />
-      )}
+      {packSheet}
       {addOpen && <AddPlaceSheet city={activeCity} existing={stops.map((s) => s.placeId)} onAdd={addPlace} onClose={() => setAddOpen(false)} />}
       {selectedStop && (
         <StopSheet
@@ -358,6 +400,15 @@ function App() {
           onClose={() => setStopOpenId(null)}
           onChange={(patch) => updateStop(selectedStop.id, patch)}
           onDelete={() => deleteStop(selectedStop.id)}
+        />
+      )}
+      {deleteConfirmCity && (
+        <ConfirmSheet
+          title={`删除 ${packs[deleteConfirmCity].city} 地图包？`}
+          body={`将从本机缓存中删除 ${formatBytes(packs[deleteConfirmCity].sizeBytes)} 的地图与路网。之后可以重新下载。`}
+          confirmLabel="删除并释放空间"
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteConfirmCity(null)}
         />
       )}
     </div>

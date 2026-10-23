@@ -303,3 +303,13 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
   body { padding: 28px 0; background: #d7d0c0; }
   .app { min-height: calc(100vh - 56px); border-radius: 26px; }
 }
+
+/* first run / boot */
+.boot-screen { min-height:100vh; display:grid; place-items:center; background:var(--paper); color:var(--muted); font-size:10px; letter-spacing:.12em; }
+.first-run { padding: 12vh 26px 0; }
+.first-run h1 { margin: 0; font-family:"Songti SC","Iowan Old Style",serif; font-size:clamp(38px,10vw,48px); line-height:1.18; font-weight:500; }
+.first-run h1 em { color:var(--accent); font-style:normal; }
+.first-run p { max-width:320px; margin:18px 0 24px; font-size:11px; line-height:1.85; color:var(--muted); }
+.first-run-cta { padding:12px 18px; font-size:10px; }
+.first-run-note { margin-top:16px; font-size:8px; color:var(--muted); letter-spacing:.04em; }
+.primary.danger-solid { background:#A84832; color:#FFF8ED; }

@@ -5,6 +5,7 @@ type Graph = {
 };
 
 type RouteRequest = {
+  type?: 'route';
   id: number;
   city: string;
   mode: 'walk' | 'taxi';
@@ -12,7 +13,14 @@ type RouteRequest = {
   to: [number, number];
 };
 
-const graphCache = new Map<string, Promise<Graph>>();
+type GraphMessage = {
+  type: 'graph';
+  city: string;
+  mode: 'walk' | 'taxi';
+  graph: Graph;
+};
+
+const graphs = new Map<string, Graph>();
 const EARTH_R = 6371000;
 const RAD = Math.PI / 180;
 
@@ -23,18 +31,6 @@ function hav(lon1: number, lat1: number, lon2: number, lat2: number): number {
   const dl = (lon2 - lon1) * RAD;
   const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   return 2 * EARTH_R * Math.asin(Math.sqrt(a));
-}
-
-function loadGraph(city: string, mode: 'walk' | 'taxi'): Promise<Graph> {
-  const key = `${city}-${mode}`;
-  if (!graphCache.has(key)) {
-    const p = fetch(`/packs/${city}/${mode === 'walk' ? 'walk' : 'car'}.json`).then((r) => {
-      if (!r.ok) throw new Error(`graph ${r.status}`);
-      return r.json() as Promise<Graph>;
-    });
-    graphCache.set(key, p);
-  }
-  return graphCache.get(key)!;
 }
 
 class Heap {
@@ -123,10 +119,23 @@ function astar(g: Graph, start: number, goal: number) {
   return { ok: true as const, path, timeSec: gScore[goal], expanded };
 }
 
-self.onmessage = async (event: MessageEvent<RouteRequest>) => {
-  const req = event.data;
+self.postMessage({ type: 'worker-ready' });
+
+self.onmessage = async (event: MessageEvent<RouteRequest | GraphMessage>) => {
+  const msg = event.data;
+  if (msg.type === 'graph') {
+    graphs.set(`${msg.city}-${msg.mode}`, msg.graph);
+    self.postMessage({ type: 'graph-ready', key: `${msg.city}-${msg.mode}` });
+    return;
+  }
+  const req = msg;
   try {
-    const g = await loadGraph(req.city, req.mode);
+    const g = graphs.get(`${req.city}-${req.mode}`);
+    if (!g) {
+      console.warn('[yanlu worker] graph missing', `${req.city}-${req.mode}`);
+      self.postMessage({ id: req.id, ok: false, error: 'graph not loaded' });
+      return;
+    }
     const a = nearest(g.nodes, req.from);
     const b = nearest(g.nodes, req.to);
     const res = astar(g, a.index, b.index);

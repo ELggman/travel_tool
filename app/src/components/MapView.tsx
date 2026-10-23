@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { AvailableCityId, LegRoute, Stop, Theme } from '../data/types';
+import { ensureTileUrls, getTileBlobUrl } from '../lib/tileStore';
 
 type Props = {
   city: AvailableCityId;
@@ -16,9 +17,19 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
   const [ready, setReady] = useState(false);
+  const [tilesReady, setTilesReady] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    let cancelled = false;
+    setTilesReady(false);
+    ensureTileUrls(city)
+      .then(() => { if (!cancelled) setTilesReady(true); })
+      .catch((err) => console.error('[yanlu] tile cache unavailable', err));
+    return () => { cancelled = true; };
+  }, [city]);
+
+  useEffect(() => {
+    if (!containerRef.current || !tilesReady) return;
     loadedRef.current = false;
     setReady(false);
     const map = new maplibregl.Map({
@@ -28,7 +39,7 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
         sources: {
           base: {
             type: 'vector',
-            tiles: [`/packs/${city}/tiles/{z}/{x}/{y}.mvt`],
+            tiles: [`https://yanlu.local/packs/${city}/tiles/{z}/{x}/{y}.mvt`],
             minzoom: 0,
             maxzoom: 15,
             attribution: '© OpenStreetMap contributors · Protomaps',
@@ -92,6 +103,14 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
       attributionControl: false,
     });
     mapRef.current = map;
+    map.setTransformRequest((url) => {
+      if (url.startsWith('https://yanlu.local/')) {
+        const path = new URL(url).pathname;
+        const blob = getTileBlobUrl(city, path);
+        if (blob) return { url: blob };
+      }
+      return { url };
+    });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);
@@ -100,15 +119,18 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
       setReady(true);
       fit(map, stops, legs);
     });
+    map.on('error', (event) => {
+      console.error('[yanlu] map error', event.error?.message ?? event.error);
+    });
     return () => {
       ro.disconnect();
       ((map as any)._yanluMarkers ?? []).forEach((m: maplibregl.Marker) => m.remove());
       map.remove();
       mapRef.current = null;
     };
-    // map is intentionally recreated when the city/theme changes
+    // map is recreated when the city or its downloaded tiles change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city]);
+  }, [city, tilesReady]);
 
   useEffect(() => {
     const map = mapRef.current;
