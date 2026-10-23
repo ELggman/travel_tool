@@ -80,7 +80,7 @@ public final class LocalServer {
                 path = URLDecoder.decode(path, "UTF-8");
             } catch (Exception ignored) {
             }
-            if (path.equals("/")) path = "/preview.html";
+            if (path.equals("/")) path = "/index.html";
             if (path.contains("..")) {
                 send(socket, method, 400, "text/plain", "bad path".getBytes(StandardCharsets.UTF_8), false);
                 return;
@@ -126,7 +126,7 @@ public final class LocalServer {
     private static String mime(String path) {
         String lower = path.toLowerCase();
         if (lower.endsWith(".html")) return "text/html; charset=utf-8";
-        if (lower.endsWith(".js")) return "application/javascript; charset=utf-8";
+        if (lower.endsWith(".js") || lower.endsWith(".mjs")) return "application/javascript; charset=utf-8";
         if (lower.endsWith(".css")) return "text/css; charset=utf-8";
         if (lower.endsWith(".json")) return "application/json; charset=utf-8";
         if (lower.endsWith(".mvt")) return "application/x-protobuf";

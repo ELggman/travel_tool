@@ -18,7 +18,7 @@ public class MainActivity extends Activity {
     private static final String TAG = "YanluMain";
     private static final int PORT = 8765;
     private static final String START_URL =
-            "http://127.0.0.1:" + PORT + "/preview.html?city=chongqing&tilesRoot=/tiles&recompute=1";
+            "http://127.0.0.1:" + PORT + "/index.html";
 
     private LocalServer server;
     private WebView webView;

@@ -65,3 +65,7 @@ __pycache__/
 *.pyc
 
 spikes/out/osrm-geometries/
+.npm-cache/
+app/node_modules/
+app/dist/
+app/public/packs/

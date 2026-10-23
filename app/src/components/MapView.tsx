@@ -1,0 +1,190 @@
+import { useEffect, useRef, useState } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import type { AvailableCityId, LegRoute, Stop, Theme } from '../data/types';
+
+type Props = {
+  city: AvailableCityId;
+  theme: Theme;
+  stops: Stop[];
+  legs: LegRoute[];
+  activeStopId: string | null;
+  onSelectStop: (id: string) => void;
+};
+
+export default function MapView({ city, theme, stops, legs, activeStopId, onSelectStop }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const loadedRef = useRef(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    loadedRef.current = false;
+    setReady(false);
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: {
+        version: 8,
+        sources: {
+          base: {
+            type: 'vector',
+            tiles: [`/packs/${city}/tiles/{z}/{x}/{y}.mvt`],
+            minzoom: 0,
+            maxzoom: 15,
+            attribution: '© OpenStreetMap contributors · Protomaps',
+          },
+          route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+        },
+        layers: [
+          { id: 'bg', type: 'background', paint: { 'background-color': theme.paper } },
+          { id: 'earth', type: 'fill', source: 'base', 'source-layer': 'earth', paint: { 'fill-color': theme.land } },
+          { id: 'water', type: 'fill', source: 'base', 'source-layer': 'water', paint: { 'fill-color': theme.water } },
+          {
+            id: 'landuse', type: 'fill', source: 'base', 'source-layer': 'landuse',
+            paint: {
+              'fill-color': ['match', ['get', 'kind'],
+                'park', theme.green, 'grass', theme.green, 'forest', theme.green,
+                'pedestrian', theme.paperDeep, 'residential', theme.land,
+                'commercial', theme.paperDeep, 'pitch', theme.paperDeep, theme.land],
+              'fill-opacity': 0.92,
+            },
+          },
+          {
+            id: 'buildings', type: 'fill', source: 'base', 'source-layer': 'buildings', minzoom: 13,
+            paint: { 'fill-color': theme.paperDeep, 'fill-outline-color': theme.line, 'fill-opacity': 0.62 },
+          },
+          {
+            id: 'roads-casing', type: 'line', source: 'base', 'source-layer': 'roads',
+            paint: {
+              'line-color': theme.line,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 13, 2, 15, 6, 17, 11],
+              'line-opacity': 0.8,
+            },
+          },
+          {
+            id: 'roads', type: 'line', source: 'base', 'source-layer': 'roads',
+            paint: {
+              'line-color': theme.road,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.45, 13, 1.2, 15, 4.2, 17, 8],
+            },
+          },
+          {
+            id: 'route-casing', type: 'line', source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#FFF9EE', 'line-width': 7, 'line-opacity': 0.9 },
+          },
+          {
+            id: 'route-walk', type: 'line', source: 'route',
+            filter: ['==', ['get', 'mode'], 'walk'],
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': theme.accent, 'line-width': 3.7 },
+          },
+          {
+            id: 'route-taxi', type: 'line', source: 'route',
+            filter: ['==', ['get', 'mode'], 'taxi'],
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': theme.accent2, 'line-width': 3.2, 'line-dasharray': [2, 1.4] },
+          },
+        ],
+      },
+      center: stops[0] ? [stops[0].lon, stops[0].lat] : [106.55, 29.56],
+      zoom: 12,
+      attributionControl: false,
+    });
+    mapRef.current = map;
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(containerRef.current);
+    map.on('load', () => {
+      loadedRef.current = true;
+      setReady(true);
+      fit(map, stops, legs);
+    });
+    return () => {
+      ro.disconnect();
+      ((map as any)._yanluMarkers ?? []).forEach((m: maplibregl.Marker) => m.remove());
+      map.remove();
+      mapRef.current = null;
+    };
+    // map is intentionally recreated when the city/theme changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !ready) return;
+    sync(map, stops, legs, activeStopId, onSelectStop, theme);
+  }, [stops, legs, activeStopId, theme, onSelectStop, ready]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !ready) return;
+    fit(map, stops, legs);
+  }, [stops, legs, ready]);
+
+  return (
+    <div className="map-wrap">
+      <div ref={containerRef} className="map" />
+      <div className="map-credit">© OpenStreetMap · Protomaps · local pack</div>
+    </div>
+  );
+}
+
+function sync(
+  map: maplibregl.Map,
+  stops: Stop[],
+  legs: LegRoute[],
+  activeStopId: string | null,
+  onSelectStop: (id: string) => void,
+  theme: Theme,
+) {
+  const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined;
+  if (source) {
+    source.setData({
+      type: 'FeatureCollection',
+      features: legs.map((leg) => ({
+        type: 'Feature',
+        properties: { mode: leg.mode },
+        geometry: { type: 'LineString', coordinates: leg.coordinates },
+      })),
+    });
+  }
+  map.setPaintProperty('route-walk', 'line-color', theme.accent);
+  map.setPaintProperty('route-taxi', 'line-color', theme.accent2);
+
+  // remove old stop markers
+  (map as any)._yanluMarkers?.forEach((m: maplibregl.Marker) => m.remove());
+  const markers: maplibregl.Marker[] = [];
+  stops.forEach((stop, i) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = `map-stop${stop.id === activeStopId ? ' active' : ''}`;
+    el.innerHTML = `<span>${i + 1}</span><b>${escapeHtml(stop.name)}</b>`;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onSelectStop(stop.id);
+    });
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -4] })
+      .setLngLat([stop.lon, stop.lat])
+      .addTo(map);
+    markers.push(marker);
+  });
+  (map as any)._yanluMarkers = markers;
+}
+
+function fit(map: maplibregl.Map, stops: Stop[], legs: LegRoute[]) {
+  const coords: [number, number][] = [];
+  legs.forEach((l) => coords.push(...l.coordinates));
+  if (!coords.length) stops.forEach((s) => coords.push([s.lon, s.lat]));
+  if (!coords.length) return;
+  if (coords.length === 1) {
+    map.jumpTo({ center: coords[0], zoom: 14 });
+    return;
+  }
+  const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
+  map.fitBounds(bounds, { padding: { top: 60, right: 52, bottom: 60, left: 52 }, duration: 0, maxZoom: 14.6 });
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}

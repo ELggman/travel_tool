@@ -1,76 +1,50 @@
-# 沿路 Android 离线地图 Proof
+# 沿路 Android 壳（M1）
 
-这是一个**单 Activity WebView 验证壳**，用于在 Android 上验证：
+单 Activity + 本地 HTTP + WebView，用来承载 `app/` 的 M1 版本。
 
-- 本地 HTTP 服务（Kotlin/Java，无第三方依赖）
-- 三城离线矢量瓦片（从 PMTiles 导出的 ZXY 树）
-- 本地 MapLibre + 本地路网图 + 浏览器内 A*
-- 断网/飞行模式下加载与重算
+当前 APK 已经不是三城验证页，而是 **省份/城市地图包 + 单日行程编辑** 的第一版：
 
-它不是最终 App 架构；正式版应改为 Capacitor/Kotlin 插件 + 原生 PMTiles/包管理，详见 [三城报告](../docs/spikes/city-map-report.md)。
+- 本地 HTTP 服务（Java，无第三方依赖），服务 `assets/web` 下的 Vite 构建产物和城市包
+- MapLibre + 本地 ZXY 瓦片 + 本地步行/打车图 + Web Worker A*
+- 城市包下载/切换、按城市换主题、加地点、拖动排序、路线/时间重算、localStorage 持久化
+- 飞行模式可加载与算路
 
-## 已安装的工具链（本机）
+## 工具链
 
-工具链在 `.toolchain/`，已被 Git 忽略：
+`.toolchain/` 已被 Git 忽略：
 
 - Temurin JDK 21
-- Android SDK：platform-tools、platforms;android-35、build-tools;35.0.0
-- Gradle 8.13（本构建实际使用 aapt2/d8/apksigner 手工流水线，绕开本机 Gradle native 兼容问题）
+- Android SDK platform-tools、platforms;android-35、build-tools;35.0.0
+- 手工 `aapt2 → javac → d8 → zipalign → apksigner`（本机 Gradle native 兼容问题，未用 Gradle 构建）
 
-## 准备 assets
-
-先启动 PMTiles 的本地 ZXY 服务：
+## 构建 APK
 
 ```bash
-tools/pmtiles serve spikes/map --port=8090 --cors='*' &
-python3 android/prepare_assets.py
-```
+cd app
+npm install
+npm run build
 
-`prepare_assets.py` 会生成：
-
-```text
-android/app/src/main/assets/web/
-├── preview.html
-├── vendor/                 # MapLibre
-├── data/                   # 路线摘要 + manifest + 路网图
-└── tiles/<city>/<z>/<x>/<y>.mvt   # gzip MVT；服务端发送 Content-Encoding
-```
-
-三城 assets 约 53 MB，APK 约 26 MB。assets 与 APK 均不提交 Git。
-
-## 构建
-
-```bash
+cd ..
+./android/prepare_app_assets.sh   # 构建 app 并复制 dist + packs 到 assets/web
 ./android/build.sh
 ```
 
 输出：
 
 ```text
-android/build/yanlu-spike-debug.apk
+android/build/yanlu-spike-debug.apk   # 约 26 MB
 ```
 
-手工流水线：
+`prepare_app_assets.sh` 会把 `app/dist` 全部复制到 `android/app/src/main/assets/web`；城市包在 `app/public/packs`，构建时一起进 APK。assets 与 APK 都不提交 Git。
 
-1. `aapt2 link` 打包 manifest + assets
-2. `javac` 编译 Java
-3. `d8` 生成 classes.dex
-4. `zipalign`
-5. `apksigner` 用本地 debug keystore 签名
+本地服务细节：
 
-## 已验证（模拟器）
+- 端口 `127.0.0.1:8765`
+- `/` → `/index.html`
+- `.mvt` 以 `Content-Encoding: gzip` 返回
+- `.mjs` 返回 `application/javascript`，供 MapLibre worker 使用
 
-- Android 35 arm64 模拟器 `sdk_gphone64_arm64`
-- 冷启动 971 ms；本地服务起来后 0.38 s 页面完成
-- 三城底图/路线/A* 正常；飞行模式 + 关闭 Wi-Fi/数据后仍可加载和重算
-- 2026-10-22：用户已手动安装到物理手机并启动成功；物理机量化指标待补
-- 关键地点标签在 Android 上显示（HTML overlay，无在线字体）
-- PSS 126.6 MB / RSS 239.0 MB（模拟器参考值）
-- 截图：[重庆](../docs/spikes/screenshots/android-chongqing.png)、[重庆·地点标签](../docs/spikes/screenshots/android-labels-chongqing.png)、[武汉·飞行模式](../docs/spikes/screenshots/android-wuhan-offline.png)、[贵阳](../docs/spikes/screenshots/android-guiyang.png)
-
-## 真机安装
-
-手机打开“开发者选项 → USB 调试”，连接 USB，授权调试：
+## 安装
 
 ```bash
 export HOME="$PWD/.toolchain/android-user"
@@ -80,21 +54,28 @@ export ANDROID_USER_HOME="$PWD/.toolchain/android-user"
 .toolchain/android-sdk/platform-tools/adb shell am start -n com.yanlu.travel/.MainActivity
 ```
 
-如果 `adb devices` 为空，先检查 USB 线/授权弹窗；本机当前没有检测到已连接 Android 设备，所以还没完成物理真机验收。
+物理真机需要打开开发者选项 → USB 调试；无线调试要求手机和 Mac 在同一 WLAN（手机开热点时通常不能同时作为 STA，因此无线调试不可用）。
 
-## 真机验收点
+## 验证记录
 
-1. 首屏显示重庆地图和路线列表，没有 WebView 错误页
-2. 点左侧“武汉/贵阳”能切换城市，底图和路线跟着切换
-3. 点路线列表，地图 fitBounds、起终点 marker、HUD 正常
-4. 点“在浏览器本地重算这条路线”，HUD 出现“浏览器本地 A*：… ms”
-5. 打开飞行模式 + 关闭 Wi-Fi，强制停止 App 再打开，仍能加载地图和重算
-6. `adb logcat -s YanluServer YanluMain YanluWeb` 中没有 404/瓦片解析错误
+已在 Android 35 arm64 模拟器 `sdk_gphone64_arm64` 验证：
 
-## 当前限制
+- 冷启动 `TotalTime: 655 ms`；本地服务起来后约 0.5 s 页面完成
+- PSS 93.5 MB / RSS 214.6 MB（模拟器参考值）
+- 地图、路线、加地点、改停留、拖动排序、路线重算正常
+- 地图包下载/切换正常：重庆 17.6 MB，武汉 21.2 MB
+- 飞行模式 + 关闭 Wi-Fi/数据，强停重开仍加载武汉地图和路线
 
-- 使用静态 ZXY 瓦片树，不是单文件 PMTiles；三城 tiles 约 21 MB（gzip），生产应改为 PMTiles + Range。
-- 本地服务只支持 GET/HEAD，不支持 Range；当前静态瓦片和图数据不需要。
-- 未做 Android 真机 UI 适配（状态栏/刘海/横屏）；先验证功能。
-- 未验证 WebView 在低端机上的内存和 WebGL 性能。
-- 当前没有连接真机；需用户插入手机后才能完成“真机”验收。
+截图：
+
+- [Android 首页](../docs/m1/screenshots/android-home.png)
+- [Android 武汉](../docs/m1/screenshots/android-wuhan.png)
+- [Android 离线](../docs/m1/screenshots/android-offline.png)
+
+## 限制
+
+- 当前是静态 ZXY 瓦片树 + 路网图，不是单文件 PMTiles + Range；生产包管理在 M2 做。
+- 本地服务只支持 GET/HEAD，不支持 Range；当前静态资源不需要。
+- M1 只有单日和精选地点，没有离线 POI 搜索、多日、多人同步。
+- 物理真机的 M1 安装/性能还未由本机验证；模拟器结果只作参考。
+- 旧的“三城验证页”脚本 `prepare_assets.py` 保留作历史，不再用于当前 APK；M1 用 `prepare_app_assets.sh`。

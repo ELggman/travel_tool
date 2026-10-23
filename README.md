@@ -2,14 +2,27 @@
 
 和朋友一起规划旅行的本地优先 App。一次旅行按天排好行程，每天的地点、时间、交通与预订串在同一条路线上；拖动调整顺序，地图与时间一起重排。
 
-> 当前是**视觉与交互原型**，地图、数据和同步都还是演示实现。真实地图、局域网协作与 APK 的实现规划见 [docs/PLAN.md](docs/PLAN.md)；首批城市验证计划见 [docs/SPIKE-CITIES.md](docs/SPIKE-CITIES.md)。
+> M1 已在 `app/` 落地：省份/城市地图包管理、按城市换主题、重庆单日行程编辑、本地 A* 重算与 Android WebView 壳。`index.html` / `screens.html` 保留为视觉原型。
 
-## 当前状态
+## M1 当前可用
+
+- `app/`：React + Vite + MapLibre + 本地 A* Web Worker。
+- 省份/城市地图包：重庆、湖北、贵州、黑龙江；可下载/删除/查看占用；当前可下载重庆/武汉/贵阳，哈尔滨为占位。
+- 按城市切换 UI 主题、地图配色、标题与印章。
+- 重庆单日行程：加地点、删地点、改停留、步行/打车、拖动排序；路线与时间自动重算；localStorage 持久化。
+- Android 壳：`android/build/yanlu-spike-debug.apk`，约 26 MB；模拟器已验证离线加载与算路。
+- 详细：[M1 说明](app/README.md)、[M1 验证记录](docs/m1/README.md)。
+
+```bash
+cd app && npm install && npm run dev     # http://127.0.0.1:5173
+cd app && npm run build                  # 产物在 app/dist
+```
+
+### 原型
 
 - 390 × 844 的三状态原型：旅行总览、某一天的行程与地图、拖动调整顺序。
 - 单文件、无外部依赖，可直接打开。
 - 手绘 SVG 地图与演示数据；拖拽、路线预览、里程/时间重排、撤销是真实可交互的。
-- 尚未接入真实经纬度、地图瓦片、算路、持久化、局域网同步与 Android 壳。
 
 ## 预览
 
@@ -44,14 +57,14 @@ python3 -m http.server 8080
 
 目标栈：Vite + TypeScript + React / MapLibre / dnd-kit / SQLite / Capacitor；离线路由优先评估「城市路网 + TS A*」，备选 GraphHopper（Android）/ Valhalla（跨端）。
 
-三城第一轮验证已完成（2026-10-22）：30/30 路线可计算，28/30 与 OSRM 距离误差 ≤10%，断外网可加载与重算；Android 35 模拟器壳已跑通。条件通过，继续开源栈 A。结果、截图与限制见 [三城报告](docs/spikes/city-map-report.md)，验收方法见 [docs/SPIKE-CITIES.md](docs/SPIKE-CITIES.md)。
+三城第一轮验证已完成（2026-10-22）：30/30 路线可计算，28/30 与 OSRM 距离误差 ≤10%，断外网可加载与重算；M1 已在 Android 35 模拟器跑通。结果、截图与限制见 [三城报告](docs/spikes/city-map-report.md) 与 [M1 记录](docs/m1/README.md)。
 
 ### 还未确认
 
 1. 群组规模与使用频率。
 2. 是否需要同步照片/票据；v1 建议只同步结构化行程。
-3. 三城核心区 bbox（重庆尤其需要限定范围）。
-4. 静态包托管商（阿里云 OSS / 腾讯云 COS / 其他）与域名。
+3. 静态包托管商（阿里云 OSS / 腾讯云 COS / 其他）与域名。
+4. 黑龙江等省份的真实城市包接入顺序。
 
 ## Git
 
@@ -61,4 +74,4 @@ python3 -m http.server 8080
 
 ## 说明
 
-`screens.html` 只用于设计展示，不进入 APK。正式 App 会在 `app/` 中重构，原型保留作视觉参考。
+`screens.html` 只用于设计展示，不进入 APK。正式 App 在 `app/`；原型保留作视觉参考。
