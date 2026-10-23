@@ -2,7 +2,7 @@
 
 和朋友一起规划旅行的本地优先 App。一次旅行按天排好行程，每天的地点、时间、交通与预订串在同一条路线上；拖动调整顺序，地图与时间一起重排。
 
-> M2.1 已在 `app/` 落地：真实城市包归档下载、本机 CacheStorage、删除释放、首启下载、按城市换主题、单日行程编辑与本地 A*。`index.html` / `screens.html` 保留为视觉原型。
+> M2.1/M2.2a 已在 `app/` 落地：真实城市包归档下载、本机 CacheStorage、删除释放、首启下载、按城市换主题、中文道路/POI 标注、单日行程编辑与本地 A*。`index.html` / `screens.html` 保留为视觉原型。
 
 ## M1 当前可用
 
@@ -11,8 +11,9 @@
 - 首启无缓存时进入“先下载一座城市”；下载完成才进入行程。
 - 按城市切换 UI 主题、地图配色、标题与印章。
 - 单日行程：加地点、删地点、改停留、步行/打车、拖动排序；路线与时间自动重算；localStorage 持久化。
+- 中文道路/地点/POI 标注：本地 glyphs + 系统 CJK 字体，离线可用。
 - Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 549 KB；地图包从 pack server 下载。
-- 详细：[M2.1 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)。
+- 详细：[App 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)、[M2.2a 中文标注](docs/m2/labels/README.md)。
 
 ```bash
 cd app && npm install && npm run dev     # http://127.0.0.1:5173

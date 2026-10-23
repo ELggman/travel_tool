@@ -76,8 +76,9 @@ python3 scripts/pack_server.py --port 8090
 - 真实 OSS/COS 上传与 CDN
 - 省级聚合包（一次下全省）
 - 包版本更新/差分
-- 中文 glyphs / 道路 POI 标签
 - 离线 POI 搜索、多日行程、局域网同步
+
+中文标注已完成，见 [M2.2a 记录](labels/README.md)。
 
 ## 关键文件
 
