@@ -12,6 +12,7 @@
 - 按城市切换 UI 主题、地图配色、标题与印章。
 - 单日行程：加地点、删地点、改停留、步行/打车、拖动排序；路线与时间自动重算；localStorage 持久化。
 - 中文道路/地点/POI 标注：本地 glyphs + 系统 CJK 字体，离线可用。
+- 可选精细底图：重庆 z16 独立下载，标准/精细分开管理。
 - Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 637 KB；地图包从 pack server 下载。真机需填 Mac 局域网 IP，不需要科学上网。
 - 详细：[App 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)、[M2.2a 中文标注](docs/m2/labels/README.md)。
 

@@ -6,7 +6,7 @@
 
 - 本地 HTTP 服务（Java，无第三方依赖），服务 `assets/web` 下的 Vite 构建产物和城市包
 - MapLibre + 本地 ZXY 瓦片 + 本地步行/打车图 + Web Worker A*
-- 真实归档下载/删除/首启、CacheStorage 离线读取、按城市换主题、中文道路/POI 标注、加地点、拖动排序、路线/时间重算、localStorage 持久化
+- 真实归档下载/删除/首启、标准/精细底图、CacheStorage 离线读取、按城市换主题、中文道路/POI 标注、加地点、拖动排序、路线/时间重算、localStorage 持久化
 - 飞行模式可加载与算路
 
 ## 工具链
@@ -59,7 +59,7 @@ export ANDROID_USER_HOME="$PWD/.toolchain/android-user"
 
 物理真机需要打开开发者选项 → USB 调试；无线调试要求手机和 Mac 在同一 WLAN（手机开热点时通常不能同时作为 STA，因此无线调试不可用）。
 
-真机下载地图包时，**不要用模拟器的 `10.0.2.2`**。在 App 地图包底部“包服务器”填 Mac 的局域网 IP，例如 `http://10.116.48.39:8090`；不需要科学上网。详细排查见 [docs/m2/troubleshooting](../docs/m2/troubleshooting/README.md)。
+真机下载地图包时，**不要用模拟器的 `10.0.2.2`**。在 App 地图包底部“包服务器”填 Mac 当前局域网 IP（用 `ipconfig getifaddr en0` 查），例如 `http://192.168.10.234:8090`；IP 会变化，不要照抄示例。不需要科学上网。详细排查见 [docs/m2/troubleshooting](../docs/m2/troubleshooting/README.md)。
 
 ## 验证记录
 
@@ -68,6 +68,7 @@ M2.1 已在 Android 35 arm64 模拟器 `sdk_gphone64_arm64` 验证：
 - 基座 APK 637 KB，首启进入“先下载一座城市”
 - 通过 `10.0.2.2:8090` 下载重庆归档，缓存 484 个条目，地图/路线 6.9 km
 - 中文道路/POI 标注在飞行模式下正常
+- 重庆精细底图 z16 下载后，缓存 1770 条（z16 瓦片 1288 条），地图/路线正常
 - 停掉 pack server 后强停重开，地图和路线仍可用
 - 下载武汉并切换湖北主题，删除武汉后缓存只剩重庆
 - 飞行模式 + 关闭 Wi-Fi/数据，强停重开，地图、中文标注和 6.9 km 路线仍可用

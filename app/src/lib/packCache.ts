@@ -2,47 +2,62 @@ import { gunzipSync, unzipSync } from 'fflate';
 import { getPackBaseUrl } from '../config';
 
 export type DownloadProgress = (pct: number) => void;
+export type PackVariant = 'standard' | 'fine';
 
-const cacheName = (city: string) => `yanlu-pack-${city}`;
-export const cacheUrl = (city: string, name: string) => `https://yanlu.local/packs/${city}/${name}`;
+const cacheName = (city: string, variant: PackVariant) =>
+  `yanlu-pack-${city}${variant === 'fine' ? '-fine' : ''}`;
+
+export const cacheUrl = (city: string, name: string, variant: PackVariant = 'standard') =>
+  `https://yanlu.local/packs/${city}${variant === 'fine' ? '-fine' : ''}/${name}`;
 
 export function cacheSupported(): boolean {
   return typeof caches !== 'undefined';
 }
 
-export async function listCachedPacks(): Promise<string[]> {
+export async function listCachedPacks(variant: PackVariant = 'standard'): Promise<string[]> {
   if (!cacheSupported()) return [];
-  const keys = (await caches.keys()).filter((key) => key.startsWith('yanlu-pack-'));
+  const keys = (await caches.keys()).filter((key) => {
+    if (!key.startsWith('yanlu-pack-')) return false;
+    return variant === 'fine' ? key.endsWith('-fine') : !key.endsWith('-fine');
+  });
   const valid: string[] = [];
   for (const key of keys) {
-    const city = key.slice('yanlu-pack-'.length);
+    const suffix = variant === 'fine' ? '-fine' : '';
+    const city = key.slice('yanlu-pack-'.length, key.length - suffix.length);
     if (!city) {
       await caches.delete(key);
       continue;
     }
     const cache = await caches.open(key);
-    const manifest = await cache.match(cacheUrl(city, 'manifest.json'));
-    const walk = await cache.match(cacheUrl(city, 'walk.json'));
+    const manifest = await cache.match(cacheUrl(city, 'manifest.json', variant));
+    const walk = variant === 'standard'
+      ? await cache.match(cacheUrl(city, 'walk.json', variant))
+      : manifest;
     if (manifest && walk) valid.push(city);
     else await caches.delete(key);
   }
   return valid;
 }
 
-export async function deleteCachedPack(city: string): Promise<void> {
+export async function deleteCachedPack(city: string, variant: PackVariant = 'standard'): Promise<void> {
   if (!cacheSupported()) return;
-  await caches.delete(cacheName(city));
+  await caches.delete(cacheName(city, variant));
 }
 
-export async function downloadPackArchive(city: string, onProgress: DownloadProgress): Promise<void> {
+export async function downloadPackArchive(
+  city: string,
+  onProgress: DownloadProgress,
+  variant: PackVariant = 'standard',
+): Promise<void> {
   if (!cacheSupported()) throw new Error('当前 WebView 不支持 CacheStorage');
   onProgress(1);
   const base = getPackBaseUrl();
+  const archive = variant === 'fine' ? `${city}-fine` : city;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 15000);
   let response: Response;
   try {
-    response = await fetch(`${base}/packs/${city}.yanlu-pack.zip`, {
+    response = await fetch(`${base}/packs/${archive}.yanlu-pack.zip`, {
       cache: 'no-store',
       signal: controller.signal,
     });
@@ -84,7 +99,7 @@ export async function downloadPackArchive(city: string, onProgress: DownloadProg
     throw new Error('归档缺少 manifest.json');
   }
 
-  const cache = await caches.open(cacheName(city));
+  const cache = await caches.open(cacheName(city, variant));
   let done = 0;
   for (const [name, data] of entries) {
     const isMvt = name.toLowerCase().endsWith('.mvt');
@@ -96,7 +111,7 @@ export async function downloadPackArchive(city: string, onProgress: DownloadProg
         ? { 'Content-Type': 'application/json; charset=utf-8' }
         : { 'Content-Type': 'application/octet-stream' };
     await cache.put(
-      new Request(cacheUrl(city, name)),
+      new Request(cacheUrl(city, name, variant)),
       new Response(body, { headers }),
     );
     done += 1;
@@ -107,8 +122,8 @@ export async function downloadPackArchive(city: string, onProgress: DownloadProg
   onProgress(100);
 }
 
-export async function cacheEntryCount(city: string): Promise<number> {
+export async function cacheEntryCount(city: string, variant: PackVariant = 'standard'): Promise<number> {
   if (!cacheSupported()) return 0;
-  const cache = await caches.open(cacheName(city));
+  const cache = await caches.open(cacheName(city, variant));
   return (await cache.keys()).length;
 }

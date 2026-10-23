@@ -31,18 +31,23 @@ type PackSheetProps = {
   onSelect: (city: AvailableCityId) => void;
   onDownload: (city: AvailableCityId) => void;
   onDelete: (city: AvailableCityId) => void;
+  fineDownloaded: CityId[];
+  fineProgress: Partial<Record<CityId, number>>;
+  onDownloadFine: (city: AvailableCityId) => void;
+  onDeleteFine: (city: AvailableCityId) => void;
   packBase: string;
   onPackBaseChange: (value: string) => void;
 };
 
 export function PackSheet({
   activeCity, downloaded, previewCity, progress, error, onClose, onPreview, onSelect, onDownload, onDelete,
-  packBase, onPackBaseChange,
+  fineDownloaded, fineProgress, onDownloadFine, onDeleteFine, packBase, onPackBaseChange,
 }: PackSheetProps) {
   const activeProvince = provinces.find((p) => p.cityIds.includes(activeCity)) ?? provinces[0];
   const [provinceId, setProvinceId] = useState(activeProvince.id);
   const province = provinces.find((p) => p.id === provinceId) ?? provinces[0];
-  const used = downloaded.reduce((sum, id) => sum + packs[id].sizeBytes, 0);
+  const used = downloaded.reduce((sum, id) => sum + packs[id].sizeBytes, 0)
+    + fineDownloaded.reduce((sum, id) => sum + (packs[id].fine?.sizeBytes ?? 0), 0);
 
   useEffect(() => {
     if (previewCity) {
@@ -130,6 +135,22 @@ export function PackSheet({
                   <button className="primary small" disabled>即将支持</button>
                 )}
               </div>
+              {isDownloaded && info.fine?.available && (
+                <div className="fine-pack">
+                  <div className="fine-pack-copy">
+                    <strong>精细底图 · z{info.fine.maxzoom}</strong>
+                    <span>{formatBytes(info.fine.sizeBytes)} · 更细的建筑/道路，适合实际导航</span>
+                  </div>
+                  {fineDownloaded.includes(cityId) ? (
+                    <button className="text-btn danger" onClick={(e) => { e.stopPropagation(); onDeleteFine(cityId as AvailableCityId); }}>删除精细</button>
+                  ) : (
+                    <button className="text-btn" onClick={(e) => { e.stopPropagation(); onDownloadFine(cityId as AvailableCityId); }}>下载精细底图</button>
+                  )}
+                  {fineProgress[cityId] !== undefined && fineProgress[cityId]! < 100 && (
+                    <div className="download-track"><span style={{ width: `${fineProgress[cityId]}%` }} /></div>
+                  )}
+                </div>
+              )}
             </article>
           );
         })}
@@ -137,7 +158,7 @@ export function PackSheet({
 
       {error && <div className="form-error">{error}</div>}
       <footer className="pack-footer">
-        <span>已下载 {downloaded.length} 个城市</span>
+        <span>已下载 {downloaded.length} 个城市{fineDownloaded.length ? ` · 精细 ${fineDownloaded.length}` : ''}</span>
         <strong>占用 {formatBytes(used)}</strong>
       </footer>
       <div className="pack-server">

@@ -62,6 +62,13 @@ export type Province = {
   cityIds: CityId[];
 };
 
+export type FinePackInfo = {
+  available: boolean;
+  sizeBytes: number;
+  version: string;
+  maxzoom: number;
+};
+
 export type PackInfo = {
   id: CityId;
   provinceId: string;
@@ -73,6 +80,7 @@ export type PackInfo = {
   version: string;
   available: boolean;
   downloadedByDefault: boolean;
+  fine?: FinePackInfo;
 };
 
 export type LegRoute = {

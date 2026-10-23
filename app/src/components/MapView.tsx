@@ -5,6 +5,7 @@ import { ensureTileUrls, getTileBlobUrl } from '../lib/tileStore';
 
 type Props = {
   city: AvailableCityId;
+  fine?: boolean;
   theme: Theme;
   stops: Stop[];
   legs: LegRoute[];
@@ -12,7 +13,7 @@ type Props = {
   onSelectStop: (id: string) => void;
 };
 
-export default function MapView({ city, theme, stops, legs, activeStopId, onSelectStop }: Props) {
+export default function MapView({ city, fine = false, theme, stops, legs, activeStopId, onSelectStop }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
@@ -22,11 +23,11 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
   useEffect(() => {
     let cancelled = false;
     setTilesReady(false);
-    ensureTileUrls(city)
+    ensureTileUrls(city, fine ? 'fine' : 'standard')
       .then(() => { if (!cancelled) setTilesReady(true); })
       .catch((err) => console.error('[yanlu] tile cache unavailable', err));
     return () => { cancelled = true; };
-  }, [city]);
+  }, [city, fine]);
 
   useEffect(() => {
     if (!containerRef.current || !tilesReady) return;
@@ -40,9 +41,9 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
         sources: {
           base: {
             type: 'vector',
-            tiles: [`https://yanlu.local/packs/${city}/tiles/{z}/{x}/{y}.mvt`],
+            tiles: [`https://yanlu.local/packs/${city}${fine ? '-fine' : ''}/tiles/{z}/{x}/{y}.mvt`],
             minzoom: 0,
-            maxzoom: 15,
+            maxzoom: fine ? 16 : 15,
             attribution: '© OpenStreetMap contributors · Protomaps',
           },
           route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
@@ -182,7 +183,7 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
     map.setTransformRequest((url) => {
       if (url.startsWith('https://yanlu.local/')) {
         const path = new URL(url).pathname;
-        const blob = getTileBlobUrl(city, path);
+        const blob = getTileBlobUrl(city, path, fine ? 'fine' : 'standard');
         if (blob) return { url: blob };
       }
       return { url };
@@ -206,7 +207,7 @@ export default function MapView({ city, theme, stops, legs, activeStopId, onSele
     };
     // map is recreated when the city or its downloaded tiles change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city, tilesReady]);
+  }, [city, fine, tilesReady]);
 
   useEffect(() => {
     const map = mapRef.current;

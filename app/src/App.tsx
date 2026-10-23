@@ -21,6 +21,7 @@ import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './ut
 type Persisted = {
   activeCity: AvailableCityId;
   downloaded: CityId[];
+  fineDownloaded: CityId[];
   trips: Record<AvailableCityId, Trip>;
 };
 
@@ -40,13 +41,13 @@ function initialPersisted(): Persisted {
         ? saved.activeCity as AvailableCityId
         : 'chongqing';
       // CacheStorage is the source of truth; boot() fills this list asynchronously.
-      return { activeCity: active, downloaded: [], trips };
+      return { activeCity: active, downloaded: [], fineDownloaded: [], trips };
     }
   } catch {
     // fall through to seed
   }
   for (const city of availableCities) trips[city] = seedTrip(city);
-  return { activeCity: 'chongqing', downloaded: [], trips };
+  return { activeCity: 'chongqing', downloaded: [], fineDownloaded: [], trips };
 }
 
 function themeVars(theme: Theme): CSSProperties {
@@ -79,6 +80,8 @@ function App() {
   const [deleteConfirmCity, setDeleteConfirmCity] = useState<AvailableCityId | null>(null);
   const [booted, setBooted] = useState(false);
   const [packBase, setPackBase] = useState(getPackBaseUrl);
+  const [fineProgress, setFineProgress] = useState<Partial<Record<CityId, number>>>({});
+  const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
@@ -98,13 +101,14 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    listCachedPacks()
-      .then((keys) => {
+    Promise.all([listCachedPacks('standard'), listCachedPacks('fine')])
+      .then(([keys, fineKeys]) => {
         if (cancelled) return;
         const downloaded = keys.filter((id): id is AvailableCityId => availableCities.includes(id as AvailableCityId));
+        const fineDownloaded = fineKeys.filter((id): id is AvailableCityId => availableCities.includes(id as AvailableCityId) && downloaded.includes(id as AvailableCityId));
         setState((prev) => {
           const active = downloaded.includes(prev.activeCity) ? prev.activeCity : (downloaded[0] ?? 'chongqing');
-          return { ...prev, downloaded, activeCity: active };
+          return { ...prev, downloaded, fineDownloaded, activeCity: active };
         });
         if (!downloaded.length) setPackOpen(true);
       })
@@ -222,6 +226,40 @@ function App() {
     }
   };
 
+  const downloadFine = async (city: AvailableCityId) => {
+    if (!packs[city].fine?.available) return;
+    setPackError(null);
+    setFineProgress((prev) => ({ ...prev, [city]: 1 }));
+    try {
+      await downloadPackArchive(city, (pct) => setFineProgress((prev) => ({ ...prev, [city]: pct })), 'fine');
+      setState((prev) => ({
+        ...prev,
+        fineDownloaded: prev.fineDownloaded.includes(city) ? prev.fineDownloaded : [...prev.fineDownloaded, city],
+      }));
+      window.setTimeout(() => setFineProgress((prev) => {
+        const next = { ...prev }; delete next[city]; return next;
+      }), 900);
+    } catch (err) {
+      setPackError(`精细底图下载失败：${err instanceof Error ? err.message : String(err)}`);
+      setFineProgress((prev) => {
+        const next = { ...prev }; delete next[city]; return next;
+      });
+    }
+  };
+
+  const requestDeleteFine = (city: AvailableCityId) => {
+    setDeleteFineCity(city);
+  };
+
+  const confirmDeleteFine = async () => {
+    const city = deleteFineCity;
+    if (!city) return;
+    setDeleteFineCity(null);
+    await deleteCachedPack(city, 'fine');
+    releaseTileUrls(city, 'fine');
+    setState((prev) => ({ ...prev, fineDownloaded: prev.fineDownloaded.filter((id) => id !== city) }));
+  };
+
   const requestDelete = (city: AvailableCityId) => {
     if (state.downloaded.length <= 1) { setPackError('至少保留一个城市地图包。'); return; }
     setDeleteConfirmCity(city);
@@ -232,13 +270,15 @@ function App() {
     if (!city) return;
     setDeleteConfirmCity(null);
     await deleteCachedPack(city);
+    await deleteCachedPack(city, 'fine');
     releaseTileUrls(city);
+    releaseTileUrls(city, 'fine');
     setState((prev) => {
       const downloaded = prev.downloaded.filter((id) => id !== city);
       const active = prev.activeCity === city
         ? (downloaded.find((id): id is AvailableCityId => availableCities.includes(id as AvailableCityId)) ?? 'chongqing')
         : prev.activeCity;
-      return { ...prev, downloaded, activeCity: active };
+      return { ...prev, downloaded, fineDownloaded: prev.fineDownloaded.filter((id) => id !== city), activeCity: active };
     });
     setPreviewCity(null);
   };
@@ -258,6 +298,10 @@ function App() {
       onSelect={selectCity}
       onDownload={downloadPack}
       onDelete={requestDelete}
+      fineDownloaded={state.fineDownloaded}
+      fineProgress={fineProgress}
+      onDownloadFine={downloadFine}
+      onDeleteFine={requestDeleteFine}
       packBase={packBase}
       onPackBaseChange={(value) => { setPackBase(value); setPackBaseUrl(value); }}
     />
@@ -333,6 +377,7 @@ function App() {
         <section className="map-card">
           <MapView
             city={activeCity}
+            fine={state.fineDownloaded.includes(activeCity)}
             theme={baseTheme}
             stops={stops}
             legs={legs}
@@ -413,6 +458,15 @@ function App() {
           confirmLabel="删除并释放空间"
           onConfirm={confirmDelete}
           onClose={() => setDeleteConfirmCity(null)}
+        />
+      )}
+      {deleteFineCity && (
+        <ConfirmSheet
+          title={`删除 ${packs[deleteFineCity].city} 精细底图？`}
+          body="只删除 z16/z17 精细瓦片，标准地图包和路网保留。之后可以重新下载。"
+          confirmLabel="删除精细底图"
+          onConfirm={confirmDeleteFine}
+          onClose={() => setDeleteFineCity(null)}
         />
       )}
     </div>

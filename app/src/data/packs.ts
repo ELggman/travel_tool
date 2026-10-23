@@ -38,6 +38,7 @@ export const packs: Record<CityId, PackInfo> = {
     id: 'chongqing', provinceId: 'chongqing', city: '重庆', short: '渝',
     title: '山城，向上走', tagline: '两江交汇，巷子尽头是江风',
     sizeBytes: 17_631_251, version: '2026.10', available: true, downloadedByDefault: true,
+    fine: { available: true, sizeBytes: 7_654_726, version: '2026.10-fine', maxzoom: 16 },
   },
   wuhan: {
     id: 'wuhan', provinceId: 'hubei', city: '武汉', short: '鄂',
