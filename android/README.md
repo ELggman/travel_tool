@@ -59,6 +59,8 @@ export ANDROID_USER_HOME="$PWD/.toolchain/android-user"
 
 物理真机需要打开开发者选项 → USB 调试；无线调试要求手机和 Mac 在同一 WLAN（手机开热点时通常不能同时作为 STA，因此无线调试不可用）。
 
+真机下载地图包时，**不要用模拟器的 `10.0.2.2`**。在 App 地图包底部“包服务器”填 Mac 的局域网 IP，例如 `http://10.116.48.39:8090`；不需要科学上网。详细排查见 [docs/m2/troubleshooting](../docs/m2/troubleshooting/README.md)。
+
 ## 验证记录
 
 M2.1 已在 Android 35 arm64 模拟器 `sdk_gphone64_arm64` 验证：

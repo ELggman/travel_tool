@@ -11,6 +11,7 @@ import { AddPlaceSheet, ConfirmSheet, PackSheet, StopSheet } from './components/
 import { useRouting } from './hooks/useRouting';
 import { deleteCachedPack, downloadPackArchive, listCachedPacks } from './lib/packCache';
 import { releaseTileUrls } from './lib/tileStore';
+import { getPackBaseUrl, setPackBaseUrl } from './config';
 import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
@@ -77,6 +78,7 @@ function App() {
   const [packError, setPackError] = useState<string | null>(null);
   const [deleteConfirmCity, setDeleteConfirmCity] = useState<AvailableCityId | null>(null);
   const [booted, setBooted] = useState(false);
+  const [packBase, setPackBase] = useState(getPackBaseUrl);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
@@ -256,6 +258,8 @@ function App() {
       onSelect={selectCity}
       onDownload={downloadPack}
       onDelete={requestDelete}
+      packBase={packBase}
+      onPackBaseChange={(value) => { setPackBase(value); setPackBaseUrl(value); }}
     />
   ) : null;
 

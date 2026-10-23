@@ -52,9 +52,13 @@ python3 scripts/pack_server.py --port 8090
 
 - 浏览器：`http://127.0.0.1:8090`
 - Android 模拟器：`http://10.0.2.2:8090`
-- 物理手机：需要把 `PACK_BASE_URL` 指到 Mac 局域网 IP 或真实 CDN
+- 物理手机：在地图包底部“包服务器”填 `http://<Mac-IP>:8090`，或构建时设 `VITE_PACK_BASE_URL`；不需要科学上网
 - 环境变量/查询参数：`VITE_PACK_BASE_URL`，或 `?packBase=http://...`
 - 生产替换为 OSS/COS：`https://<cdn>/packs/<city>.yanlu-pack.zip`
+
+### 真机下载卡在 1%
+
+真机不能用模拟器的 `10.0.2.2`。查 Mac IP、启动 pack server、手机浏览器先验证，再在 App 内改地址；详见 [排查记录](../docs/m2/troubleshooting/README.md)。
 
 ### 重新生成归档
 

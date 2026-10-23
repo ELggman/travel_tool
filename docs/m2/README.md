@@ -58,6 +58,8 @@
 
 ## 真实包服务器
 
+真机下载卡在 1% 的排查见 [troubleshooting](troubleshooting/README.md)；不需要科学上网。
+
 本地验证用：
 
 ```bash

@@ -1,5 +1,5 @@
 import { gunzipSync, unzipSync } from 'fflate';
-import { PACK_BASE_URL } from '../config';
+import { getPackBaseUrl } from '../config';
 
 export type DownloadProgress = (pct: number) => void;
 
@@ -37,7 +37,23 @@ export async function deleteCachedPack(city: string): Promise<void> {
 export async function downloadPackArchive(city: string, onProgress: DownloadProgress): Promise<void> {
   if (!cacheSupported()) throw new Error('当前 WebView 不支持 CacheStorage');
   onProgress(1);
-  const response = await fetch(`${PACK_BASE_URL}/packs/${city}.yanlu-pack.zip`, { cache: 'no-store' });
+  const base = getPackBaseUrl();
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch(`${base}/packs/${city}.yanlu-pack.zip`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(`连接包服务器超时：${base}。真机请填写 Mac 的局域网 IP，例如 http://192.168.1.10:8090`);
+    }
+    throw new Error(`无法连接包服务器：${base}。请确认手机与 Mac 在同一网络，且 pack server 已启动`);
+  } finally {
+    window.clearTimeout(timer);
+  }
   if (!response.ok) throw new Error(`归档下载失败 HTTP ${response.status}`);
 
   const total = Number(response.headers.get('content-length') ?? 0);

@@ -31,10 +31,13 @@ type PackSheetProps = {
   onSelect: (city: AvailableCityId) => void;
   onDownload: (city: AvailableCityId) => void;
   onDelete: (city: AvailableCityId) => void;
+  packBase: string;
+  onPackBaseChange: (value: string) => void;
 };
 
 export function PackSheet({
   activeCity, downloaded, previewCity, progress, error, onClose, onPreview, onSelect, onDownload, onDelete,
+  packBase, onPackBaseChange,
 }: PackSheetProps) {
   const activeProvince = provinces.find((p) => p.cityIds.includes(activeCity)) ?? provinces[0];
   const [provinceId, setProvinceId] = useState(activeProvince.id);
@@ -137,6 +140,18 @@ export function PackSheet({
         <span>已下载 {downloaded.length} 个城市</span>
         <strong>占用 {formatBytes(used)}</strong>
       </footer>
+      <div className="pack-server">
+        <label htmlFor="pack-base">包服务器</label>
+        <input
+          id="pack-base"
+          value={packBase}
+          onChange={(e) => onPackBaseChange(e.target.value)}
+          placeholder="http://192.168.1.10:8090"
+          spellCheck={false}
+          autoCapitalize="off"
+        />
+        <small>真机填 Mac 局域网 IP；模拟器默认 10.0.2.2:8090</small>
+      </div>
       <p className="sheet-note">真实归档下载：下载后解压到本机 CacheStorage，地图与路网都从本机读取；删除会真正清理缓存。生产环境替换为 OSS/COS CDN 地址。</p>
     </Sheet>
   );
