@@ -20,27 +20,10 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
   const loadedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [tilesReady, setTilesReady] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
 
 
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    let cancelled = false;
-    caches.open('yanlu-preview-v2')
-      .then((cache) => cache.match(`${location.origin}/preview/${city}`))
-      .then(async (hit) => {
-        if (!hit || cancelled) return;
-        const blob = await hit.blob();
-        objectUrl = URL.createObjectURL(blob);
-        setPreviewUrl(objectUrl);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [city]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -302,20 +285,6 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
       loadedRef.current = true;
       setReady(true);
       fit(map, stops, legs);
-      map.once('idle', () => {
-        window.setTimeout(() => {
-          try {
-            map.getCanvas().toBlob((blob) => {
-              if (!blob) return;
-              caches.open('yanlu-preview-v2')
-                .then((cache) => cache.put(new Request(`${location.origin}/preview/${city}`), new Response(blob)))
-                .catch(() => {});
-            }, 'image/jpeg', 0.72);
-          } catch {
-            // canvas snapshots are best-effort
-          }
-        }, 300);
-      });
     });
     map.on('error', (event) => {
       console.error('[yanlu] map error', event.error?.message ?? event.error);
@@ -344,9 +313,8 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
 
   return (
     <div className="map-wrap">
-      {previewUrl && !ready && <img className="map-preview" src={previewUrl} alt="" />}
       <div ref={containerRef} className="map" />
-      {!ready && !previewUrl && <div className="map-loading"><span>地图加载中…</span></div>}
+      {!ready && <div className="map-loading"><span>地图加载中…</span></div>}
       <div className="map-credit">© OpenStreetMap · Protomaps · local pack</div>
     </div>
   );

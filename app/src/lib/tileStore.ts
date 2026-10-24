@@ -49,15 +49,23 @@ export function ensureTileUrls(city: string, variant: PackVariant = 'standard', 
       return x >= tx0 - 1 && x <= tx1 + 1 && y >= ty0 - 1 && y <= ty1 + 1;
     };
     const low = variant === 'fine' ? requests : requests.filter((item) => zoomOf(item.path) <= 10);
+    const rest = variant === 'standard'
+      ? requests.filter((item) => zoomOf(item.path) > 10 && !inBBox(item.path))
+      : [];
     const highNow = variant === 'standard'
       ? requests.filter((item) => zoomOf(item.path) > 10 && inBBox(item.path))
       : [];
     await Promise.all([...low, ...highNow].map(materialize));
-    if (variant === 'standard') {
-      const rest = requests.filter((item) => zoomOf(item.path) > 10 && !inBBox(item.path));
-      void Promise.all(rest.map(materialize))
-        .then(() => loaded.add(key))
-        .catch(() => {});
+    if (variant === 'standard' && rest.length) {
+      // Let the first frame settle before filling tiles outside the itinerary bbox.
+      window.setTimeout(() => {
+        void (async () => {
+          for (let i = 0; i < rest.length; i += 12) {
+            await Promise.all(rest.slice(i, i + 12).map(materialize));
+          }
+          loaded.add(key);
+        })();
+      }, 4000);
     } else {
       loaded.add(key);
     }
