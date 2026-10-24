@@ -5,7 +5,7 @@ export type DownloadProgress = (pct: number) => void;
 export type PackVariant = 'standard' | 'fine';
 
 const CACHE_NAMESPACE = 'yanlu-pack-v2-';
-const cacheName = (city: string, variant: PackVariant) =>
+export const cacheName = (city: string, variant: PackVariant) =>
   `${CACHE_NAMESPACE}${city}${variant === 'fine' ? '-fine3' : ''}`;
 
 export const cacheUrl = (city: string, name: string, variant: PackVariant = 'standard') =>

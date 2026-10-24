@@ -732,6 +732,7 @@ git push -u origin feat/map-engine
 - 2026-10-23 M2.2a：本地 Latin/标点 glyphs + 系统 CJK 字体，MapLibre `place-labels`/`road-labels`/`poi-labels`；Web/Android 离线验证通过；APK 637 KB。详见 [M2.2a 记录](m2/labels/README.md)。
 - 2026-10-23 M2.3a：重庆核心区 z16 精细叠加层（1.5 MB zip，1288 个 z16 瓦片），标准宽底图始终保留，精细层只在核心区叠加；Web/Android 模拟器验证通过。详见 [M2.3a 记录](m2/fine/README.md)。
 - 2026-10-24 M2.3b：重庆标准包扩到主城全区（6407 瓦片，解压 78.5 MB，zip 39 MB），路网同步扩展，缓存命名空间升级 v2；Web 验证通过。详见 [主城全区记录](m2/wide/README.md)。
+- 2026-10-24 M2.3c：地图启动改为低缩放 + 行程 bbox 优先物化，剩余高缩放瓦片后台补齐；避免每次启动读取 6407 张瓦片。详见 [启动性能记录](m2/performance/README.md)。
 
 ### 下一步
 

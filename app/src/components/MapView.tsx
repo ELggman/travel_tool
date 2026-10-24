@@ -21,11 +21,19 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
   const [ready, setReady] = useState(false);
   const [tilesReady, setTilesReady] = useState(false);
 
+
+
   useEffect(() => {
     let cancelled = false;
     setTilesReady(false);
+    const lons = stops.map((s) => s.lon);
+    const lats = stops.map((s) => s.lat);
+    const pad = 0.04;
+    const bbox: [number, number, number, number] | undefined = lons.length
+      ? [Math.min(...lons) - pad, Math.min(...lats) - pad, Math.max(...lons) + pad, Math.max(...lats) + pad]
+      : undefined;
     Promise.all([
-      ensureTileUrls(city, 'standard'),
+      ensureTileUrls(city, 'standard', bbox),
       ...(fine ? [ensureTileUrls(city, 'fine')] : []),
     ])
       .then(() => { if (!cancelled) setTilesReady(true); })
@@ -268,6 +276,7 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
       }
       return { url };
     });
+
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);

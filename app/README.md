@@ -12,7 +12,7 @@ M2.1 把 M1 的“本地演示下载”换成了**真实城市包归档下载 + 
 - 下载：`fetch` 归档（带进度）→ `fflate` 解压 → 写入 **CacheStorage**
 - 删除：`caches.delete('yanlu-pack-<city>')`，真正释放缓存；同时 revoke 该城市的 Blob URL
 - 首启：没有缓存时进入“先下载一座城市”；下载后进入行程
-- 地图：CacheStorage 中的 MVT 转 Blob URL，通过 MapLibre `transformRequest` 注入
+- 地图：CacheStorage 中的 MVT 转 Blob URL，通过 MapLibre `transformRequest` 注入；启动时只物化低缩放 + 行程 bbox，其余后台加载
 - 路由：主线程从 CacheStorage 读取 graph，交给 Web Worker A*
 - 包管理：重庆 / 武汉 / 贵阳可下载；哈尔滨为“准备中”占位；显示体积、状态、占用空间
 
