@@ -15,7 +15,7 @@ import { getPackBaseUrl, setPackBaseUrl } from './config';
 import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
-import type { AvailableCityId, CityId, LegRoute, Stop, Theme, Transport, Trip } from './data/types';
+import type { AvailableCityId, CityId, LegRoute, Place, Stop, Theme, Transport, Trip } from './data/types';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -171,11 +171,9 @@ function App() {
     updateStops((current) => current.map((stop) => (stop.id === id ? { ...stop, ...patch } : stop)));
   };
 
-  const addPlace = (placeId: string) => {
-    const place = cityPlaces(activeCity).find((p) => p.id === placeId);
-    if (!place) return;
+  const addPlace = (place: Place) => {
     updateStops((current) => {
-      if (current.some((s) => s.placeId === placeId)) return current;
+      if (current.some((s) => s.placeId === place.id)) return current;
       return [...current, makeStop(place)];
     });
     setAddOpen(false);

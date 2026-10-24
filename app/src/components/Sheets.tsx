@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { cityPlaces, formatBytes, packs, provinces } from '../data/packs';
-import type { AvailableCityId, CityId, Stop, Transport } from '../data/types';
+import type { AvailableCityId, CityId, Place, Stop, Transport } from '../data/types';
 
 type SheetProps = { onClose: () => void; children: ReactNode; wide?: boolean; className?: string };
 
@@ -182,43 +182,108 @@ export function PackSheet({
   );
 }
 
+type PoiEntry = {
+  name: string;
+  kind: string;
+  kindValue: string;
+  lon: number;
+  lat: number;
+  nameEn?: string;
+};
+
+const KIND_LABELS: Record<string, string> = {
+  attraction: '景点', museum: '博物馆', hospital: '医院', clinic: '诊所',
+  school: '学校', university: '大学', college: '学院', park: '公园',
+  mall: '商场', department_store: '商场', supermarket: '超市', hotel: '酒店',
+  restaurant: '餐厅', cafe: '咖啡', bank: '银行', pharmacy: '药店',
+  station: '车站', subway_station: '地铁站', bus_station: '公交站',
+  place_of_worship: '宗教场所', library: '图书馆', theatre: '剧院',
+  cinema: '电影院', stadium: '体育场', monument: '纪念地',
+  memorial: '纪念地', viewpoint: '观景点', peak: '山峰',
+  government: '政府机构', townhall: '政府机构', office: '写字楼',
+  commercial: '商业', retail: '商店', yes: '地点',
+  place: '地名', neighbourhood: '社区', locality: '地名',
+};
+
+function categoryLabel(p: PoiEntry): string {
+  return KIND_LABELS[p.kindValue] || KIND_LABELS[p.kind] || p.kindValue || p.kind || '地点';
+}
+
 type AddPlaceSheetProps = {
   city: AvailableCityId;
   existing: string[];
-  onAdd: (placeId: string) => void;
+  onAdd: (place: Place) => void;
   onClose: () => void;
 };
 
 export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetProps) {
   const [query, setQuery] = useState('');
-  const places = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return cityPlaces(city).filter((p) => !q || `${p.name}${p.category}`.toLowerCase().includes(q));
-  }, [city, query]);
+  const [pois, setPois] = useState<PoiEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/poi/${city}.json`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PoiEntry[]) => { if (!cancelled) setPois(data); })
+      .catch(() => { if (!cancelled) setPois([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [city]);
+
+  const curated = cityPlaces(city);
+  const q = query.trim().toLowerCase();
+  const indexResults = useMemo(() => {
+    if (!q) return [];
+    const seen = new Set<string>();
+    return pois
+      .filter((p) => `${p.name} ${p.nameEn ?? ''} ${categoryLabel(p)}`.toLowerCase().includes(q))
+      .filter((p) => !['platform', 'stop_position'].includes(p.kindValue))
+      .filter((p) => {
+        if (seen.has(p.name)) return false;
+        seen.add(p.name);
+        return true;
+      })
+      .sort((a, b) => {
+        const an = a.name.toLowerCase();
+        const bn = b.name.toLowerCase();
+        const aStarts = an.startsWith(q) ? 0 : 1;
+        const bStarts = bn.startsWith(q) ? 0 : 1;
+        return aStarts - bStarts || an.localeCompare(bn, 'zh-Hans-CN');
+      })
+      .slice(0, 40);
+  }, [pois, q]);
+
+  const curatedResults = curated.filter((p) => !q || `${p.name}${p.category}`.toLowerCase().includes(q));
+  const count = indexResults.length + curatedResults.length;
 
   return (
     <Sheet onClose={onClose}>
       <header className="sheet-head">
         <div>
-          <span className="eyebrow">ADD A PLACE</span>
+          <span className="eyebrow">OFFLINE POI SEARCH</span>
           <h2>加一个地点</h2>
-          <p>M1 先用精选地点；下一版接离线 POI 搜索。</p>
+          <p>搜索本地 OSM 地点；离线可用。</p>
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
       </header>
       <label className="search-field">
         <span>⌕</span>
-        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索地点或类别" />
+        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索地点、类别，如 洪崖洞 / 医院 / 商场" />
       </label>
+      <p className="search-note">
+        {loading ? '正在读取离线索引…' : q ? `${count} 个结果` : '热门地点；输入关键词可搜索全城'}
+      </p>
       <div className="place-list">
-        {places.map((place) => {
+        {curatedResults.map((place) => {
           const added = existing.includes(place.id);
           return (
             <button
               key={place.id}
               className={`place-row${added ? ' added' : ''}`}
               disabled={added}
-              onClick={() => { onAdd(place.id); onClose(); }}
+              onClick={() => onAdd(place)}
             >
               <span className="place-symbol">{place.category.slice(0, 1)}</span>
               <span className="place-main"><strong>{place.name}</strong><small>{place.category} · 建议停留 {place.durationMin} 分钟</small></span>
@@ -226,7 +291,24 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
             </button>
           );
         })}
-        {!places.length && <p className="empty-note">没有匹配的地点。</p>}
+        {indexResults.map((p) => {
+          const id = `osm:${city}:${p.name}:${p.lon}:${p.lat}`;
+          const added = existing.includes(id);
+          const category = categoryLabel(p);
+          return (
+            <button
+              key={id}
+              className={`place-row${added ? ' added' : ''}`}
+              disabled={added}
+              onClick={() => onAdd({ id, name: p.name, category, lon: p.lon, lat: p.lat, durationMin: 45 })}
+            >
+              <span className="place-symbol">{category.slice(0, 1)}</span>
+              <span className="place-main"><strong>{p.name}</strong><small>{category} · OSM 离线地点</small></span>
+              <span className="place-action">{added ? '已加' : '＋'}</span>
+            </button>
+          );
+        })}
+        {!curatedResults.length && !indexResults.length && !loading && <p className="empty-note">没有匹配的地点。</p>}
       </div>
     </Sheet>
   );
