@@ -328,3 +328,4 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .map-loading { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:3; padding:6px 10px; border-radius:999px; background:color-mix(in srgb, var(--paper) 92%, transparent); color:var(--muted); font-size:8px; letter-spacing:.12em; box-shadow:0 8px 20px -16px rgba(30,40,34,.5); }
 .search-note { margin: 0 0 6px; font-size: 8px; color: var(--muted); letter-spacing: .03em; }
 .place-list { max-height: 46vh; overflow: auto; }
+.pick-custom { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); display: grid; gap: 8px; }

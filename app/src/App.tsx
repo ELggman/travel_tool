@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import MapView from './components/MapView';
-import { AddPlaceSheet, ConfirmSheet, PackSheet, StopSheet } from './components/Sheets';
+import { AddPlaceSheet, ConfirmSheet, MapPickSheet, PackSheet, StopSheet } from './components/Sheets';
 import { useRouting } from './hooks/useRouting';
 import { deleteCachedPack, downloadPackArchive, listCachedPacks } from './lib/packCache';
 import { releaseTileUrls } from './lib/tileStore';
@@ -79,6 +79,7 @@ function App() {
   const [previewCity, setPreviewCity] = useState<CityId | null>(null);
   const [packOpen, setPackOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [mapPick, setMapPick] = useState<{ lon: number; lat: number } | null>(null);
   const [stopOpenId, setStopOpenId] = useState<string | null>(null);
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Partial<Record<CityId, number>>>({});
@@ -397,6 +398,7 @@ function App() {
             legs={legs}
             activeStopId={activeStopId}
             onSelectStop={(id) => { setActiveStopId(id); setStopOpenId(id); }}
+            onMapPick={setMapPick}
           />
           <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
         </section>
@@ -455,6 +457,15 @@ function App() {
 
       {packSheet}
       {addOpen && <AddPlaceSheet city={activeCity} existing={stops.map((s) => s.placeId)} onAdd={addPlace} onClose={() => setAddOpen(false)} />}
+      {mapPick && (
+        <MapPickSheet
+          city={activeCity}
+          point={mapPick}
+          existing={stops.map((s) => s.placeId)}
+          onAdd={(place) => { addPlace(place); setMapPick(null); }}
+          onClose={() => setMapPick(null)}
+        />
+      )}
       {selectedStop && (
         <StopSheet
           stop={selectedStop}

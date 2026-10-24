@@ -12,12 +12,15 @@ type Props = {
   legs: LegRoute[];
   activeStopId: string | null;
   onSelectStop: (id: string) => void;
+  onMapPick?: (point: { lon: number; lat: number }) => void;
 };
 
-export default function MapView({ city, fine = false, focusFine = 0, theme, stops, legs, activeStopId, onSelectStop }: Props) {
+export default function MapView({ city, fine = false, focusFine = 0, theme, stops, legs, activeStopId, onSelectStop, onMapPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
+  const onMapPickRef = useRef(onMapPick);
+  onMapPickRef.current = onMapPick;
   const [ready, setReady] = useState(false);
   const [tilesReady, setTilesReady] = useState(false);
 
@@ -278,6 +281,9 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
       return { url };
     });
 
+    map.on('click', (event) => {
+      onMapPickRef.current?.({ lon: event.lngLat.lng, lat: event.lngLat.lat });
+    });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);

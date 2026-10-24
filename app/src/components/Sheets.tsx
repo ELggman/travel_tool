@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { cityPlaces, formatBytes, packs, provinces } from '../data/packs';
 import type { AvailableCityId, CityId, Place, Stop, Transport } from '../data/types';
+import { loadPoiIndex, type PoiEntry } from '../lib/poiIndex';
 
 type SheetProps = { onClose: () => void; children: ReactNode; wide?: boolean; className?: string };
 
@@ -182,14 +183,6 @@ export function PackSheet({
   );
 }
 
-type PoiEntry = {
-  name: string;
-  kind: string;
-  kindValue: string;
-  lon: number;
-  lat: number;
-  nameEn?: string;
-};
 
 const KIND_LABELS: Record<string, string> = {
   attraction: '景点', museum: '博物馆', hospital: '医院', clinic: '诊所',
@@ -224,10 +217,8 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/poi/${city}.json`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: PoiEntry[]) => { if (!cancelled) setPois(data); })
-      .catch(() => { if (!cancelled) setPois([]); })
+    loadPoiIndex(city)
+      .then((data) => { if (!cancelled) setPois(data); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [city]);
@@ -309,6 +300,113 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
           );
         })}
         {!curatedResults.length && !indexResults.length && !loading && <p className="empty-note">没有匹配的地点。</p>}
+      </div>
+    </Sheet>
+  );
+}
+
+
+type MapPickSheetProps = {
+  city: AvailableCityId;
+  point: { lon: number; lat: number };
+  existing: string[];
+  onAdd: (place: Place) => void;
+  onClose: () => void;
+};
+
+function distanceMeters(a: { lon: number; lat: number }, b: { lon: number; lat: number }) {
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lon - a.lon) * Math.PI / 180;
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+export function MapPickSheet({ city, point, existing, onAdd, onClose }: MapPickSheetProps) {
+  const [pois, setPois] = useState<PoiEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [customName, setCustomName] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    loadPoiIndex(city)
+      .then((data) => { if (!cancelled) setPois(data); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [city]);
+
+  const nearby = useMemo(() => {
+    const seen = new Set<string>();
+    return pois
+      .map((p) => ({ ...p, distance: distanceMeters(point, p) }))
+      .filter((p) => p.distance <= 300)
+      .filter((p) => !['platform', 'stop_position'].includes(p.kindValue))
+      .filter((p) => {
+        if (seen.has(p.name)) return false;
+        seen.add(p.name);
+        return true;
+      })
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 8);
+  }, [pois, point]);
+
+  const pinId = `pin:${city}:${point.lon.toFixed(6)}:${point.lat.toFixed(6)}`;
+
+  return (
+    <Sheet onClose={onClose}>
+      <header className="sheet-head">
+        <div>
+          <span className="eyebrow">PICK ON MAP</span>
+          <h2>这里加一个点</h2>
+          <p>{point.lat.toFixed(5)}, {point.lon.toFixed(5)}</p>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
+      </header>
+      <p className="search-note">
+        {loading ? '正在查找附近地点…' : nearby.length ? `附近 ${nearby.length} 个 OSM 地点` : '附近没有已收录的 POI，可自定义'}
+      </p>
+      <div className="place-list">
+        {nearby.map((p) => {
+          const id = `osm:${city}:${p.name}:${p.lon}:${p.lat}`;
+          const added = existing.includes(id);
+          const category = KIND_LABELS[p.kindValue] || KIND_LABELS[p.kind] || p.kindValue || p.kind || '地点';
+          return (
+            <button
+              key={id}
+              className={`place-row${added ? ' added' : ''}`}
+              disabled={added}
+              onClick={() => onAdd({ id, name: p.name, category, lon: p.lon, lat: p.lat, durationMin: 45 })}
+            >
+              <span className="place-symbol">{category.slice(0, 1)}</span>
+              <span className="place-main">
+                <strong>{p.name}</strong>
+                <small>{category} · 距点选位置 {Math.round(p.distance)} m</small>
+              </span>
+              <span className="place-action">{added ? '已加' : '＋'}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="pick-custom">
+        <label className="search-field">
+          <span>＋</span>
+          <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="自定义地点名称" />
+        </label>
+        <button
+          className="primary-btn"
+          disabled={!customName.trim()}
+          onClick={() => onAdd({
+            id: pinId,
+            name: customName.trim(),
+            category: '地图点选',
+            lon: point.lon,
+            lat: point.lat,
+            durationMin: 45,
+          })}
+        >加到行程</button>
       </div>
     </Sheet>
   );
