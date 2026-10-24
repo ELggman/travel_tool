@@ -35,13 +35,14 @@ type PackSheetProps = {
   fineProgress: Partial<Record<CityId, number>>;
   onDownloadFine: (city: AvailableCityId) => void;
   onDeleteFine: (city: AvailableCityId) => void;
+  onShowFine: (city: AvailableCityId) => void;
   packBase: string;
   onPackBaseChange: (value: string) => void;
 };
 
 export function PackSheet({
   activeCity, downloaded, previewCity, progress, error, onClose, onPreview, onSelect, onDownload, onDelete,
-  fineDownloaded, fineProgress, onDownloadFine, onDeleteFine, packBase, onPackBaseChange,
+  fineDownloaded, fineProgress, onDownloadFine, onDeleteFine, onShowFine, packBase, onPackBaseChange,
 }: PackSheetProps) {
   const activeProvince = provinces.find((p) => p.cityIds.includes(activeCity)) ?? provinces[0];
   const [provinceId, setProvinceId] = useState(activeProvince.id);
@@ -139,10 +140,13 @@ export function PackSheet({
                 <div className="fine-pack">
                   <div className="fine-pack-copy">
                     <strong>核心区精细 · z{info.fine.maxzoom}</strong>
-                    <span>{formatBytes(info.fine.sizeBytes)} · 仅叠加核心区，不替换全区底图</span>
+                    <span>{formatBytes(info.fine.sizeBytes)} · 仅叠加核心区 z16；总览缩放看不到，放大到 16 查看</span>
                   </div>
                   {fineDownloaded.includes(cityId) ? (
-                    <button className="text-btn danger" onClick={(e) => { e.stopPropagation(); onDeleteFine(cityId as AvailableCityId); }}>删除精细</button>
+                    <>
+                      <button className="text-btn" onClick={(e) => { e.stopPropagation(); onShowFine(cityId as AvailableCityId); }}>查看精细层</button>
+                      <button className="text-btn danger" onClick={(e) => { e.stopPropagation(); onDeleteFine(cityId as AvailableCityId); }}>删除精细</button>
+                    </>
                   ) : (
                     <button className="text-btn" onClick={(e) => { e.stopPropagation(); onDownloadFine(cityId as AvailableCityId); }}>下载精细底图</button>
                   )}

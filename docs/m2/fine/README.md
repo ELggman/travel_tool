@@ -26,6 +26,7 @@ App 里的表现：
 - 核心区 z16 瓦片叠加在宽底图之上
 - 核心区外仍显示主城全区 z15，不会白边/空白
 - 删除精细包只移除叠加层，宽底图不受影响
+- 地图包内新增“查看精细层”，点击后飞到核心区 z16，直接看差异
 - 历史上那版 7.5 MB“整图替换”精细包会导致核心区外白边，已废弃
 
 ## 为什么是 z16，不是 z17
@@ -93,6 +94,8 @@ MapView 使用两个 source：
 ![Web 精细叠加](screenshots/web-fine-overlay.png)
 
 ![Web 精细 z16](screenshots/web-fine-overlay-z16.png)
+
+![查看精细层](screenshots/web-fine-focus.png)
 
 ![Android 精细 z16](screenshots/android-fine-z16.png)
 

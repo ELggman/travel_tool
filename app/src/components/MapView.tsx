@@ -6,6 +6,7 @@ import { ensureTileUrls, getTileBlobUrl } from '../lib/tileStore';
 type Props = {
   city: AvailableCityId;
   fine?: boolean;
+  focusFine?: number;
   theme: Theme;
   stops: Stop[];
   legs: LegRoute[];
@@ -13,7 +14,7 @@ type Props = {
   onSelectStop: (id: string) => void;
 };
 
-export default function MapView({ city, fine = false, theme, stops, legs, activeStopId, onSelectStop }: Props) {
+export default function MapView({ city, fine = false, focusFine = 0, theme, stops, legs, activeStopId, onSelectStop }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
@@ -31,6 +32,12 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
       .catch((err) => console.error('[yanlu] tile cache unavailable', err));
     return () => { cancelled = true; };
   }, [city, fine]);
+
+  useEffect(() => {
+    if (!focusFine || !mapRef.current || !ready) return;
+    mapRef.current.flyTo({ center: [106.55, 29.56], zoom: 16, duration: 700 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusFine]);
 
   useEffect(() => {
     if (!containerRef.current || !tilesReady) return;
@@ -132,6 +139,28 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
               paint: {
                 'line-color': theme.road,
                 'line-width': ['interpolate', ['linear'], ['zoom'], 16, 4.2, 18, 8],
+              },
+            },
+            {
+              id: 'fine-poi-labels', type: 'symbol', source: 'fine', 'source-layer': 'pois',
+              minzoom: 16,
+              filter: ['all', ['has', 'name'], ['match', ['get', 'kind'],
+                ['attraction', 'museum', 'hospital', 'park', 'peak', 'station', 'mall', 'hotel',
+                  'monument', 'memorial', 'viewpoint', 'place_of_worship', 'library'], true, false]],
+              layout: {
+                'text-field': ['coalesce', ['get', 'name:zh-Hans'], ['get', 'name:zh'], ['get', 'name']],
+                'text-font': ['NotoSansSC'],
+                'text-size': 10.5,
+                'text-max-width': 8,
+                'text-padding': 4,
+                'text-optional': true,
+                'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
+                'text-radial-offset': 0.6,
+              },
+              paint: {
+                'text-color': theme.ink,
+                'text-halo-color': theme.paper,
+                'text-halo-width': 1.4,
               },
             },
           ] as maplibregl.LayerSpecification[]) : []),

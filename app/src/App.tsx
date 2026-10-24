@@ -82,6 +82,7 @@ function App() {
   const [packBase, setPackBase] = useState(getPackBaseUrl);
   const [fineProgress, setFineProgress] = useState<Partial<Record<CityId, number>>>({});
   const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
+  const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
@@ -251,6 +252,13 @@ function App() {
     setDeleteFineCity(city);
   };
 
+  const showFine = (city: AvailableCityId) => {
+    setState((prev) => ({ ...prev, activeCity: city }));
+    setPackOpen(false);
+    setPreviewCity(null);
+    setFocusFine((n) => n + 1);
+  };
+
   const confirmDeleteFine = async () => {
     const city = deleteFineCity;
     if (!city) return;
@@ -302,6 +310,7 @@ function App() {
       fineProgress={fineProgress}
       onDownloadFine={downloadFine}
       onDeleteFine={requestDeleteFine}
+      onShowFine={showFine}
       packBase={packBase}
       onPackBaseChange={(value) => { setPackBase(value); setPackBaseUrl(value); }}
     />
@@ -378,6 +387,7 @@ function App() {
           <MapView
             city={activeCity}
             fine={state.fineDownloaded.includes(activeCity)}
+            focusFine={focusFine}
             theme={baseTheme}
             stops={stops}
             legs={legs}
