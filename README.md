@@ -15,6 +15,7 @@
 - 可选精细底图：重庆核心区 z16 独立下载；标准包已扩到重庆主城全区。
 - 地图启动按低缩放 + 行程 bbox 优先加载，高缩放瓦片后台补齐；WebView 启动底色和纸张色加载层减少白屏/黑屏。
 - 离线 POI 搜索：重庆 2.0 万条 OSM 地点，索引随城市包下载，搜索后直接加进行程。
+- 多日行程：DAY 01 / DAY 02 切换，每天独立地点、时间与路线。
 - Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 637 KB；POI 索引随城市包；地图包从 pack server 下载。真机需填 Mac 局域网 IP，不需要科学上网。
 - 详细：[App 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)、[M2.2a 中文标注](docs/m2/labels/README.md)。
 

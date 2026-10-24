@@ -15,7 +15,7 @@ import { getPackBaseUrl, setPackBaseUrl } from './config';
 import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
-import type { AvailableCityId, CityId, LegRoute, Place, Stop, Theme, Transport, Trip } from './data/types';
+import type { AvailableCityId, CityId, Day, LegRoute, Place, Stop, Theme, Transport, Trip } from './data/types';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -27,6 +27,38 @@ type Persisted = {
 
 const STORAGE_KEY = 'yanlu.m2.v1';
 
+function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function normalizeDay(day: Day, index: number, city: AvailableCityId): Day {
+  return {
+    id: day.id || `day-${city}-${index + 1}`,
+    date: day.date || new Date().toISOString().slice(0, 10),
+    label: day.label || `DAY ${String(index + 1).padStart(2, '0')}`,
+    startTime: day.startTime || '09:30',
+    stops: Array.isArray(day.stops) ? day.stops : [],
+  };
+}
+
+function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
+  const fallback = seedTrip(city);
+  if (!raw) return fallback;
+  const legacy = raw as Trip & { day?: Day };
+  const rawDays = Array.isArray(raw.days) ? raw.days : legacy.day ? [legacy.day] : [];
+  const days = rawDays.length ? rawDays.map((day, i) => normalizeDay(day, i, city)) : fallback.days;
+  const activeDayId = days.some((day) => day.id === raw.activeDayId) ? raw.activeDayId : days[0].id;
+  return {
+    id: raw.id || fallback.id,
+    cityId: city,
+    title: raw.title || fallback.title,
+    days,
+    activeDayId,
+  };
+}
+
 function initialPersisted(): Persisted {
   const trips = {} as Record<AvailableCityId, Trip>;
   try {
@@ -35,7 +67,7 @@ function initialPersisted(): Persisted {
       const saved = JSON.parse(raw) as Partial<Persisted>;
       for (const city of availableCities) {
         const savedTrip = saved.trips?.[city];
-        trips[city] = savedTrip && savedTrip.day?.stops?.length ? savedTrip : seedTrip(city);
+        trips[city] = normalizeTrip(savedTrip, city);
       }
       const savedDownloaded = Array.isArray(saved.downloaded)
         ? saved.downloaded.filter((id): id is CityId => availableCities.includes(id as AvailableCityId))
@@ -89,11 +121,14 @@ function App() {
   const [packBase, setPackBase] = useState(getPackBaseUrl);
   const [fineProgress, setFineProgress] = useState<Partial<Record<CityId, number>>>({});
   const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
+  const [deleteDayId, setDeleteDayId] = useState<string | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
-  const stops = trip.day.stops;
+  const activeDay = trip.days.find((day) => day.id === trip.activeDayId) ?? trip.days[0];
+  const activeDayIndex = trip.days.findIndex((day) => day.id === activeDay.id);
+  const stops = activeDay.stops;
   const pack = packs[activeCity];
   const province = provinceOf(activeCity);
   const baseTheme = themes[activeCity];
@@ -126,7 +161,7 @@ function App() {
   }, []);
 
   const timeline = useMemo(() => {
-    let cursor = parseTime(trip.day.startTime);
+    let cursor = parseTime(activeDay.startTime);
     return stops.map((stop, i) => {
       const arrive = cursor;
       const leave = arrive + stop.durationMin;
@@ -134,22 +169,27 @@ function App() {
       cursor = leave + (leg?.durationMin ?? 0);
       return { stop, arrive, leave, leg };
     });
-  }, [stops, legs, trip.day.startTime]);
+  }, [stops, legs, activeDay.startTime]);
 
   const totalMeters = legs.reduce((sum, l) => sum + l.distanceM, 0);
   const totalMinutes = timeline.length
-    ? timeline[timeline.length - 1].leave - parseTime(trip.day.startTime)
+    ? timeline[timeline.length - 1].leave - parseTime(activeDay.startTime)
     : 0;
 
   const updateStops = (next: Stop[] | ((current: Stop[]) => Stop[])) => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
-      const nextStops = typeof next === 'function' ? next(currentTrip.day.stops) : next;
+      const dayId = currentTrip.activeDayId;
+      const currentDay = currentTrip.days.find((day) => day.id === dayId) ?? currentTrip.days[0];
+      const nextStops = typeof next === 'function' ? next(currentDay.stops) : next;
       return {
         ...prev,
         trips: {
           ...prev.trips,
-          [prev.activeCity]: { ...currentTrip, day: { ...currentTrip.day, stops: nextStops } },
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentDay.id ? { ...day, stops: nextStops } : day)),
+          },
         },
       };
     });
@@ -162,10 +202,82 @@ function App() {
         ...prev,
         trips: {
           ...prev.trips,
-          [prev.activeCity]: { ...currentTrip, day: { ...currentTrip.day, startTime } },
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, startTime } : day)),
+          },
         },
       };
     });
+  };
+
+  const switchDay = (dayId: string) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      if (!currentTrip.days.some((day) => day.id === dayId)) return prev;
+      return {
+        ...prev,
+        trips: { ...prev.trips, [prev.activeCity]: { ...currentTrip, activeDayId: dayId } },
+      };
+    });
+    setActiveStopId(null);
+    setStopOpenId(null);
+  };
+
+  const addDay = () => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      const last = currentTrip.days[currentTrip.days.length - 1];
+      const index = currentTrip.days.length + 1;
+      const day: Day = {
+        id: `day-${prev.activeCity}-${index}-${Date.now()}`,
+        date: addDays(last.date, 1),
+        label: `DAY ${String(index).padStart(2, '0')}`,
+        startTime: last.startTime,
+        stops: [],
+      };
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: [...currentTrip.days, day],
+            activeDayId: day.id,
+          },
+        },
+      };
+    });
+    setActiveStopId(null);
+    setStopOpenId(null);
+  };
+
+  const requestDeleteDay = (dayId: string) => {
+    const current = state.trips[activeCity];
+    if (current.days.length <= 1) return;
+    setDeleteDayId(dayId);
+  };
+
+  const confirmDeleteDay = () => {
+    const dayId = deleteDayId;
+    if (!dayId) return;
+    setDeleteDayId(null);
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      if (currentTrip.days.length <= 1) return prev;
+      const index = currentTrip.days.findIndex((day) => day.id === dayId);
+      if (index < 0) return prev;
+      const days = currentTrip.days.filter((day) => day.id !== dayId);
+      const activeDayId = currentTrip.activeDayId === dayId
+        ? days[Math.max(0, index - 1)].id
+        : currentTrip.activeDayId;
+      return {
+        ...prev,
+        trips: { ...prev.trips, [prev.activeCity]: { ...currentTrip, days, activeDayId } },
+      };
+    });
+    setActiveStopId(null);
+    setStopOpenId(null);
   };
 
   const updateStop = (id: string, patch: Partial<Stop>) => {
@@ -376,7 +488,7 @@ function App() {
         <section className="hero">
           <div className="hero-orbit" aria-hidden="true" />
           <div className="hero-content">
-            <div className="hero-kicker"><span>{province.name} · {pack.version}</span><span>{trip.day.label} · {dateLabel(trip.day.date)}</span></div>
+            <div className="hero-kicker"><span>{province.name} · {pack.version}</span><span>{activeDay.label} · {dateLabel(activeDay.date)}</span></div>
             <h1>{titleParts[0]}{titleParts[1] && <><br /><em>{titleParts[1]}</em></>}</h1>
             <p>{pack.tagline}</p>
             <div className="hero-stats">
@@ -403,13 +515,41 @@ function App() {
           <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
         </section>
 
+        <section className="day-tabs" aria-label="行程日期">
+          {trip.days.map((day, index) => (
+            <button
+              key={day.id}
+              className={`day-tab${day.id === activeDay.id ? ' active' : ''}`}
+              onClick={() => switchDay(day.id)}
+            >
+              <strong>{day.label}</strong>
+              <small>{dateLabel(day.date)}</small>
+              <span>{day.stops.length} 站</span>
+              {index === trip.days.length - 1 && trip.days.length > 1 && (
+                <i
+                  className="day-tab-delete"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); requestDeleteDay(day.id); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); requestDeleteDay(day.id); } }}
+                  aria-label={`删除 ${day.label}`}
+                >×</i>
+              )}
+            </button>
+          ))}
+          <button className="day-tab day-tab-add" onClick={addDay}>
+            <strong>＋</strong>
+            <small>加一天</small>
+          </button>
+        </section>
+
         <section className="day-section">
           <div className="section-head">
             <div>
-              <span className="eyebrow">YOUR DAY</span>
-              <h2>今天的路线</h2>
+              <span className="eyebrow">YOUR DAY · {activeDay.label}</span>
+              <h2>第 {activeDayIndex + 1} 天路线</h2>
             </div>
-            <label className="time-picker">出发<input type="time" value={trip.day.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+            <label className="time-picker">出发<input type="time" value={activeDay.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -474,6 +614,15 @@ function App() {
           onClose={() => setStopOpenId(null)}
           onChange={(patch) => updateStop(selectedStop.id, patch)}
           onDelete={() => deleteStop(selectedStop.id)}
+        />
+      )}
+      {deleteDayId && (
+        <ConfirmSheet
+          title="删除这一天？"
+          body="这一天的地点和路线会从本机移除，不影响其他天。"
+          confirmLabel="删除这一天"
+          onConfirm={confirmDeleteDay}
+          onClose={() => setDeleteDayId(null)}
         />
       )}
       {deleteConfirmCity && (

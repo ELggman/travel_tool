@@ -94,17 +94,19 @@ export function seedTrip(city: AvailableCityId): Trip {
     .map((p, i) => makeStop(p, i === 1 ? 'taxi' : 'walk'));
   const today = new Date();
   const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const day = {
+    id: `day-${city}-1`,
+    date,
+    label: 'DAY 01',
+    startTime: '09:30',
+    stops,
+  };
   return {
     id: `trip-${city}`,
     cityId: city,
     title: packs[city].title,
-    day: {
-      id: `day-${city}-1`,
-      date,
-      label: 'DAY 01',
-      startTime: '09:30',
-      stops,
-    },
+    days: [day],
+    activeDayId: day.id,
   };
 }
 
