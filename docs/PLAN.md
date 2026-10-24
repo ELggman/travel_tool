@@ -731,12 +731,13 @@ git push -u origin feat/map-engine
 - 2026-10-23 M2.1：真实 `.yanlu-pack.zip` 下载到 CacheStorage、解压/校验、删除释放、首启下载、CacheStorage→Blob 瓦片、缓存 graph→Worker A*；Web + Android 模拟器断网验证通过；基座 APK 549 KB。详见 [M2.1 记录](m2/README.md)。
 - 2026-10-23 M2.2a：本地 Latin/标点 glyphs + 系统 CJK 字体，MapLibre `place-labels`/`road-labels`/`poi-labels`；Web/Android 离线验证通过；APK 637 KB。详见 [M2.2a 记录](m2/labels/README.md)。
 - 2026-10-23 M2.3a：重庆 z16 精细底图独立归档（7.5 MB zip，新增 1288 个 z16 瓦片），标准/精细缓存、下载/删除/占用、地图自动切换；Web/Android 模拟器验证通过。详见 [M2.3a 记录](m2/fine/README.md)。
+- 2026-10-24 M2.3b：重庆标准包扩到主城全区（6407 瓦片，解压 78.5 MB，zip 39 MB），路网同步扩展，缓存命名空间升级 v2；Web 验证通过。详见 [主城全区记录](m2/wide/README.md)。
 
 ### 下一步
 
 第一轮三城验证、M1 单日编辑闭环和 M2.1 真实包下载已经完成。接下来按以下顺序推进：
 
-1. **M2.3b 精细包扩展**：把标准/精细包扩展到武汉/贵阳；接 CDN/SHA-256/断点续传；z17 需要更新 Planetiler 或换切片器。
+1. **M2.3c 包分发与扩城**：把主城全区/精细包扩展到武汉/贵阳；接 CDN/SHA-256/断点续传；z17 需要更新 Planetiler 或换切片器。
 2. **M2.2b 离线 POI 搜索**：打包城市 POI 索引，支持断网搜索与地图点选；中文道路/地名标签已在 M2.2a 完成。
 2. **M2.3 包分发**：OSS/COS/CDN、SHA-256、断点续传/暂停、配额淘汰、包版本更新；物理真机用局域网 IP/CDN 验证。
 3. **M2.4 多日行程**：行程列表、多天切换、每日汇总；再补真实预订/票据字段。

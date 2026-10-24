@@ -138,7 +138,7 @@ export function PackSheet({
               {isDownloaded && info.fine?.available && (
                 <div className="fine-pack">
                   <div className="fine-pack-copy">
-                    <strong>精细底图 · z{info.fine.maxzoom}</strong>
+                    <strong>核心区精细 · z{info.fine.maxzoom}</strong>
                     <span>{formatBytes(info.fine.sizeBytes)} · 更细的建筑/道路，适合实际导航</span>
                   </div>
                   {fineDownloaded.includes(cityId) ? (

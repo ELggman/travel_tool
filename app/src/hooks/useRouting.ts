@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AvailableCityId, LegRoute, Stop } from '../data/types';
 import { haversine } from '../utils';
-import { cacheUrl } from '../lib/packCache';
 
 type WorkerReply = {
   id: number;
@@ -35,7 +34,6 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
   const workerRef = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<number, (reply: WorkerReply) => void>());
   const tokenRef = useRef(0);
-  const graphPromises = useRef(new Map<string, Promise<void>>());
   const readyPromise = useRef<Promise<void> | null>(null);
   const readyResolve = useRef<(() => void) | null>(null);
 
@@ -69,7 +67,6 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
   useEffect(() => {
     const token = ++tokenRef.current;
     if (!enabled) {
-      graphPromises.current.clear();
       setLegs([]);
       setLoading(false);
       return;
@@ -86,25 +83,16 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
     setLoading(true);
     const pairs = stops.slice(0, -1).map((from, i) => ({ from, to: stops[i + 1], mode: from.transportToNext }));
     const ensureGraph = (mode: 'walk' | 'taxi') => {
-      const key = `${city}-${mode}`;
-      let promise = graphPromises.current.get(key);
-      if (!promise) {
-        promise = (async () => {
-          await readyPromise.current;
-          const cache = await caches.open(`yanlu-pack-${city}`);
-          const url = cacheUrl(city, mode === 'walk' ? 'walk.json' : 'car.json');
-          const hit = await cache.match(url);
-          if (!hit) throw new Error(`graph cache missing: ${key}`);
-          const graph = await hit.json();
-          const worker = workerRef.current;
-          if (!worker) throw new Error('routing worker not ready');
-          worker.postMessage({ type: 'graph', city, mode, graph });
-          console.debug('[yanlu] graph posted', key);
-        })();
-        promise.catch(() => graphPromises.current.delete(key));
-        graphPromises.current.set(key, promise);
-      }
-      return promise;
+      const worker = workerRef.current;
+      if (!worker) return Promise.reject(new Error('routing worker not ready'));
+      worker.postMessage({
+        type: 'graph-ref',
+        city,
+        mode,
+        cacheName: `yanlu-pack-v2-${city}`,
+        url: `https://yanlu.local/packs/${city}/${mode === 'walk' ? 'walk' : 'car'}.json`,
+      });
+      return Promise.resolve();
     };
 
     const run = async (from: Stop, to: Stop, mode: 'walk' | 'taxi') => {

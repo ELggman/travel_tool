@@ -85,7 +85,7 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
             id: 'place-labels', type: 'symbol', source: 'base', 'source-layer': 'places',
             minzoom: 9,
             filter: ['all', ['has', 'name'], ['match', ['get', 'kind'],
-              ['locality', 'neighbourhood', 'region', 'city', 'county'], true, false],
+              ['locality', 'neighbourhood', 'region', 'city', 'county', 'macrohood'], true, false],
               ['>=', ['zoom'], ['to-number', ['get', 'min_zoom']]]],
             layout: {
               'text-field': ['coalesce', ['get', 'name:zh-Hans'], ['get', 'name:zh'], ['get', 'name']],

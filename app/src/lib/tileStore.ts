@@ -6,7 +6,7 @@ const loading = new Map<string, Promise<void>>();
 
 const storeKey = (city: string, variant: PackVariant, path: string) => `${city}:${variant}:${path}`;
 const cacheKey = (city: string, variant: PackVariant) =>
-  `yanlu-pack-${city}${variant === 'fine' ? '-fine' : ''}`;
+  `yanlu-pack-v2-${city}${variant === 'fine' ? '-fine' : ''}`;
 
 /** Materialize cached MVT entries as blob URLs. MapLibre workers can fetch blob URLs reliably. */
 export function ensureTileUrls(city: string, variant: PackVariant = 'standard'): Promise<void> {

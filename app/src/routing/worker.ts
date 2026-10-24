@@ -13,14 +13,33 @@ type RouteRequest = {
   to: [number, number];
 };
 
-type GraphMessage = {
-  type: 'graph';
+type GraphRef = {
+  type: 'graph-ref';
   city: string;
   mode: 'walk' | 'taxi';
-  graph: Graph;
+  cacheName: string;
+  url: string;
 };
 
 const graphs = new Map<string, Graph>();
+const graphPromises = new Map<string, Promise<Graph>>();
+
+function loadGraph(ref: GraphRef): Promise<Graph> {
+  const key = `${ref.city}-${ref.mode}`;
+  const existing = graphPromises.get(key);
+  if (existing) return existing;
+  const promise = (async () => {
+    const cache = await caches.open(ref.cacheName);
+    const hit = await cache.match(ref.url);
+    if (!hit) throw new Error(`graph cache missing: ${key}`);
+    const graph = await hit.json() as Graph;
+    graphs.set(key, graph);
+    self.postMessage({ type: 'graph-ready', key });
+    return graph;
+  })();
+  graphPromises.set(key, promise);
+  return promise;
+}
 const EARTH_R = 6371000;
 const RAD = Math.PI / 180;
 
@@ -121,18 +140,22 @@ function astar(g: Graph, start: number, goal: number) {
 
 self.postMessage({ type: 'worker-ready' });
 
-self.onmessage = async (event: MessageEvent<RouteRequest | GraphMessage>) => {
+self.onmessage = async (event: MessageEvent<RouteRequest | GraphRef>) => {
   const msg = event.data;
-  if (msg.type === 'graph') {
-    graphs.set(`${msg.city}-${msg.mode}`, msg.graph);
-    self.postMessage({ type: 'graph-ready', key: `${msg.city}-${msg.mode}` });
+  if (msg.type === 'graph-ref') {
+    loadGraph(msg).catch((err) => console.warn('[yanlu worker] graph load failed', err));
     return;
   }
   const req = msg;
   try {
-    const g = graphs.get(`${req.city}-${req.mode}`);
+    const g = graphs.get(`${req.city}-${req.mode}`) ?? await loadGraph({
+      type: 'graph-ref',
+      city: req.city,
+      mode: req.mode,
+      cacheName: `yanlu-pack-v2-${req.city}`,
+      url: `https://yanlu.local/packs/${req.city}/${req.mode === 'walk' ? 'walk' : 'car'}.json`,
+    });
     if (!g) {
-      console.warn('[yanlu worker] graph missing', `${req.city}-${req.mode}`);
       self.postMessage({ id: req.id, ok: false, error: 'graph not loaded' });
       return;
     }

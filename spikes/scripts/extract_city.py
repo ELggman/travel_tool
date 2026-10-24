@@ -138,7 +138,7 @@ class ExtractHandler(osmium.SimpleHandler):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("city", choices=["chongqing", "wuhan", "guiyang"])
+    ap.add_argument("city", choices=["chongqing", "chongqing-wide", "wuhan", "guiyang"])
     args = ap.parse_args()
 
     cities = json.load(open(os.path.join(ROOT, "spikes", "cities.json")))

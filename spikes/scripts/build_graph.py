@@ -227,7 +227,7 @@ def build_mode(osm, mode, places):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("city", choices=["chongqing", "wuhan", "guiyang"])
+    ap.add_argument("city", choices=["chongqing", "chongqing-wide", "wuhan", "guiyang"])
     args = ap.parse_args()
     osm_path = os.path.join(DATA, f"{args.city}-osm.json")
     places_path = os.path.join(ROOT, "spikes", "places-routes.json")
