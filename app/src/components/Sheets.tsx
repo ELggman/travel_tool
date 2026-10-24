@@ -139,7 +139,7 @@ export function PackSheet({
                 <div className="fine-pack">
                   <div className="fine-pack-copy">
                     <strong>核心区精细 · z{info.fine.maxzoom}</strong>
-                    <span>{formatBytes(info.fine.sizeBytes)} · 更细的建筑/道路，适合实际导航</span>
+                    <span>{formatBytes(info.fine.sizeBytes)} · 仅叠加核心区，不替换全区底图</span>
                   </div>
                   {fineDownloaded.includes(cityId) ? (
                     <button className="text-btn danger" onClick={(e) => { e.stopPropagation(); onDeleteFine(cityId as AvailableCityId); }}>删除精细</button>

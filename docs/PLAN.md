@@ -730,7 +730,7 @@ git push -u origin feat/map-engine
 - 2026-10-23 M1：`app/` 完成省份/城市地图包管理、按城市主题、重庆单日编辑、拖动排序、本地 A*、localStorage 持久化；Android WebView 模拟器验证通过，APK 约 26 MB。详见 [M1 记录](m1/README.md)。
 - 2026-10-23 M2.1：真实 `.yanlu-pack.zip` 下载到 CacheStorage、解压/校验、删除释放、首启下载、CacheStorage→Blob 瓦片、缓存 graph→Worker A*；Web + Android 模拟器断网验证通过；基座 APK 549 KB。详见 [M2.1 记录](m2/README.md)。
 - 2026-10-23 M2.2a：本地 Latin/标点 glyphs + 系统 CJK 字体，MapLibre `place-labels`/`road-labels`/`poi-labels`；Web/Android 离线验证通过；APK 637 KB。详见 [M2.2a 记录](m2/labels/README.md)。
-- 2026-10-23 M2.3a：重庆 z16 精细底图独立归档（7.5 MB zip，新增 1288 个 z16 瓦片），标准/精细缓存、下载/删除/占用、地图自动切换；Web/Android 模拟器验证通过。详见 [M2.3a 记录](m2/fine/README.md)。
+- 2026-10-23 M2.3a：重庆核心区 z16 精细叠加层（1.5 MB zip，1288 个 z16 瓦片），标准宽底图始终保留，精细层只在核心区叠加；Web/Android 模拟器验证通过。详见 [M2.3a 记录](m2/fine/README.md)。
 - 2026-10-24 M2.3b：重庆标准包扩到主城全区（6407 瓦片，解压 78.5 MB，zip 39 MB），路网同步扩展，缓存命名空间升级 v2；Web 验证通过。详见 [主城全区记录](m2/wide/README.md)。
 
 ### 下一步

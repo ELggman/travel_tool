@@ -6,7 +6,7 @@ export type PackVariant = 'standard' | 'fine';
 
 const CACHE_NAMESPACE = 'yanlu-pack-v2-';
 const cacheName = (city: string, variant: PackVariant) =>
-  `${CACHE_NAMESPACE}${city}${variant === 'fine' ? '-fine' : ''}`;
+  `${CACHE_NAMESPACE}${city}${variant === 'fine' ? '-fine3' : ''}`;
 
 export const cacheUrl = (city: string, name: string, variant: PackVariant = 'standard') =>
   `https://yanlu.local/packs/${city}${variant === 'fine' ? '-fine' : ''}/${name}`;
@@ -19,15 +19,15 @@ export async function listCachedPacks(variant: PackVariant = 'standard'): Promis
   if (!cacheSupported()) return [];
   const all = await caches.keys();
   // Invalidate pre-v2 packs when the archive format/coverage changes.
-  const legacy = all.filter((key) => key.startsWith('yanlu-pack-') && !key.startsWith(CACHE_NAMESPACE));
+  const legacy = all.filter((key) => (key.startsWith('yanlu-pack-') && !key.startsWith(CACHE_NAMESPACE)) || key.endsWith('-fine'));
   await Promise.all(legacy.map((key) => caches.delete(key)));
   const keys = all.filter((key) => {
     if (!key.startsWith(CACHE_NAMESPACE)) return false;
-    return variant === 'fine' ? key.endsWith('-fine') : !key.endsWith('-fine');
+    return variant === 'fine' ? key.endsWith('-fine3') : !key.endsWith('-fine3');
   });
   const valid: string[] = [];
   for (const key of keys) {
-    const suffix = variant === 'fine' ? '-fine' : '';
+    const suffix = variant === 'fine' ? '-fine3' : '';
     const city = key.slice(CACHE_NAMESPACE.length, key.length - suffix.length);
     if (!city) {
       await caches.delete(key);

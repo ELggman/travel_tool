@@ -23,7 +23,10 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
   useEffect(() => {
     let cancelled = false;
     setTilesReady(false);
-    ensureTileUrls(city, fine ? 'fine' : 'standard')
+    Promise.all([
+      ensureTileUrls(city, 'standard'),
+      ...(fine ? [ensureTileUrls(city, 'fine')] : []),
+    ])
       .then(() => { if (!cancelled) setTilesReady(true); })
       .catch((err) => console.error('[yanlu] tile cache unavailable', err));
     return () => { cancelled = true; };
@@ -41,11 +44,19 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
         sources: {
           base: {
             type: 'vector',
-            tiles: [`https://yanlu.local/packs/${city}${fine ? '-fine' : ''}/tiles/{z}/{x}/{y}.mvt`],
+            tiles: [`https://yanlu.local/packs/${city}/tiles/{z}/{x}/{y}.mvt`],
             minzoom: 0,
-            maxzoom: fine ? 16 : 15,
+            maxzoom: 15,
             attribution: '© OpenStreetMap contributors · Protomaps',
           },
+          ...(fine ? {
+            fine: {
+              type: 'vector' as const,
+              tiles: [`https://yanlu.local/packs/${city}-fine/tiles/{z}/{x}/{y}.mvt`],
+              minzoom: 16,
+              maxzoom: 16,
+            },
+          } : {}),
           route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
         },
         layers: [
@@ -81,6 +92,49 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
               'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.45, 13, 1.2, 15, 4.2, 17, 8],
             },
           },
+          ...(fine ? ([
+            {
+              id: 'fine-earth', type: 'fill', source: 'fine', 'source-layer': 'earth',
+              minzoom: 16, paint: { 'fill-color': theme.land },
+            },
+            {
+              id: 'fine-water', type: 'fill', source: 'fine', 'source-layer': 'water',
+              minzoom: 16, paint: { 'fill-color': theme.water },
+            },
+            {
+              id: 'fine-landuse', type: 'fill', source: 'fine', 'source-layer': 'landuse',
+              minzoom: 16,
+              paint: {
+                'fill-color': ['match', ['get', 'kind'],
+                  'park', theme.green, 'grass', theme.green, 'forest', theme.green,
+                  'pedestrian', theme.paperDeep, 'residential', theme.land,
+                  'commercial', theme.paperDeep, 'pitch', theme.paperDeep, theme.land],
+                'fill-opacity': 0.92,
+              },
+            },
+            {
+              id: 'fine-buildings', type: 'fill', source: 'fine', 'source-layer': 'buildings',
+              minzoom: 16,
+              paint: { 'fill-color': theme.paperDeep, 'fill-outline-color': theme.line, 'fill-opacity': 0.62 },
+            },
+            {
+              id: 'fine-roads-casing', type: 'line', source: 'fine', 'source-layer': 'roads',
+              minzoom: 16,
+              paint: {
+                'line-color': theme.line,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 16, 6, 18, 11],
+                'line-opacity': 0.8,
+              },
+            },
+            {
+              id: 'fine-roads', type: 'line', source: 'fine', 'source-layer': 'roads',
+              minzoom: 16,
+              paint: {
+                'line-color': theme.road,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 16, 4.2, 18, 8],
+              },
+            },
+          ] as maplibregl.LayerSpecification[]) : []),
           {
             id: 'place-labels', type: 'symbol', source: 'base', 'source-layer': 'places',
             minzoom: 9,
@@ -183,7 +237,8 @@ export default function MapView({ city, fine = false, theme, stops, legs, active
     map.setTransformRequest((url) => {
       if (url.startsWith('https://yanlu.local/')) {
         const path = new URL(url).pathname;
-        const blob = getTileBlobUrl(city, path, fine ? 'fine' : 'standard');
+        const variant = url.includes(`/packs/${city}-fine/`) ? 'fine' : 'standard';
+        const blob = getTileBlobUrl(city, path, variant);
         if (blob) return { url: blob };
       }
       return { url };

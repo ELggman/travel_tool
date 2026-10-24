@@ -12,19 +12,21 @@
 - 解压后约 78.5 MB，zip 39 MB
 - 精细包仍只覆盖核心区
 
-新增重庆精细包：
+新增重庆精细包（修复后的叠加版）：
 
-- z0–16，**1769 个瓦片**
-- 其中 z16 新增 **1288 个瓦片**
-- 瓦片约 7.65 MB，zip **7.5 MB**
+- 只包含核心区 **z16，1288 个瓦片**
+- 瓦片约 1.3 MB，zip **1.5 MB**
 - 复用标准包的 walk/car 路网，不重复下载路网
+- 不再替换整张底图，只作为核心区 z16 叠加层
 
 App 里的表现：
 
-- 标准包下载后，出现“精细底图 · z16”
-- 精细包单独下载、单独删除、单独计占用
-- 已下载精细包时，地图自动使用精细缓存
-- 删除精细包时回到标准 z15，不影响标准包和路线
+- 标准包下载后，出现“核心区精细 · z16”
+- 下载后，主城全区 z15 底图始终保留
+- 核心区 z16 瓦片叠加在宽底图之上
+- 核心区外仍显示主城全区 z15，不会白边/空白
+- 删除精细包只移除叠加层，宽底图不受影响
+- 历史上那版 7.5 MB“整图替换”精细包会导致核心区外白边，已废弃
 
 ## 为什么是 z16，不是 z17
 
@@ -50,12 +52,12 @@ chongqing-latest.osm.pbf
 → chongqing-fine.pmtiles (5.0 MB)
 ```
 
-再按 bbox 导出 z16 ZXY 瓦片，叠在标准包 z0–15 上，生成：
+按 bbox 只导出 z16 ZXY 瓦片，作为核心区叠加层：
 
 ```text
 pack-source/chongqing-fine/
 ├── manifest.json
-└── tiles/0..16/...
+└── tiles/16/...
 ```
 
 打包：
@@ -63,8 +65,13 @@ pack-source/chongqing-fine/
 ```bash
 cd app
 python3 scripts/build_pack_archives.py
-# chongqing-fine 7.5 MB
+# chongqing-fine 1.5 MB
 ```
+
+MapView 使用两个 source：
+
+- `base`：主城全区 z0–15，始终存在
+- `fine`：核心区 z16，只在下载精细包后叠加
 
 ## 验证
 
@@ -83,7 +90,9 @@ python3 scripts/build_pack_archives.py
 3. 缓存 `yanlu-pack-chongqing-fine`：1770 条，其中 z16 瓦片 1288 条。
 4. 飞行模式 + 关闭 Wi-Fi/数据，强停重开，精细地图、中文标注和 6.9 km 路线仍正常。
 
-![Web 精细 z16](screenshots/web-fine-z16.png)
+![Web 精细叠加](screenshots/web-fine-overlay.png)
+
+![Web 精细 z16](screenshots/web-fine-overlay-z16.png)
 
 ![Android 精细 z16](screenshots/android-fine-z16.png)
 
