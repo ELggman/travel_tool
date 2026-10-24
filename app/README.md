@@ -8,7 +8,7 @@ M2.1 把 M1 的“本地演示下载”换成了**真实城市包归档下载 + 
 
 - 城市包是独立归档：`<city>.yanlu-pack.zip`
   - 重庆 9.7 MB、武汉 11.4 MB、贵阳 5.7 MB（压缩后）
-- App 基座不再内置三城地图包：APK 从 26 MB 降到约 **1.0 MB**（含离线 POI 索引）
+- App 基座不再内置三城地图包：APK 从 26 MB 降到约 **637 KB**；POI 索引随城市包
 - 下载：`fetch` 归档（带进度）→ `fflate` 解压 → 写入 **CacheStorage**
 - 删除：`caches.delete('yanlu-pack-<city>')`，真正释放缓存；同时 revoke 该城市的 Blob URL
 - 首启：没有缓存时进入“先下载一座城市”；下载后进入行程
@@ -98,7 +98,7 @@ src/
 │   └── Sheets.tsx          # 地图包 / 加地点 / 编辑地点
 ├── data/
 │   ├── packs.ts            # 省份、城市、主题、种子行程、包元数据
-public/poi/*.json           # 离线 POI 索引
+pack-source/<city>/pois.json  # 随城市包发布的离线 POI 索引
 │   └── places.generated.ts
 ├── lib/
 │   ├── packCache.ts        # 归档下载、CacheStorage、校验、删除

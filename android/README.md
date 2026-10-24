@@ -2,7 +2,7 @@
 
 单 Activity + 本地 HTTP + WebView，用来承载 `app/` 的 M1 版本。
 
-当前 APK 是 **M2.1 真实城市包下载 + 单日行程编辑**。基座不内置地图包，APK 约 1.2 MB（含本地 glyphs 与离线 POI 索引）；城市包从 pack server 下载到 CacheStorage。
+当前 APK 是 **M2.1 真实城市包下载 + 单日行程编辑**。基座不内置地图包，APK 约 637 KB（含本地 glyphs；POI 索引随城市包）；城市包从 pack server 下载到 CacheStorage。
 
 - 本地 HTTP 服务（Java，无第三方依赖），服务 `assets/web` 下的 Vite 构建产物和城市包
 - MapLibre + 本地 ZXY 瓦片 + 本地步行/打车图 + Web Worker A*
@@ -35,7 +35,7 @@ cd app && python3 scripts/pack_server.py --port 8090
 输出：
 
 ```text
-android/build/yanlu-spike-debug.apk   # 约 1.2 MB
+android/build/yanlu-spike-debug.apk   # 约 637 KB
 ```
 
 `prepare_app_assets.sh` 只把 `app/dist` 复制到 `android/app/src/main/assets/web`；城市包不在 APK 里，运行时从 pack server 下载。assets 与 APK 都不提交 Git。
@@ -65,7 +65,7 @@ export ANDROID_USER_HOME="$PWD/.toolchain/android-user"
 
 M2.1 已在 Android 35 arm64 模拟器 `sdk_gphone64_arm64` 验证：
 
-- 基座 APK 约 1.2 MB，首启进入“先下载一座城市”
+- 基座 APK 约 637 KB，首启进入“先下载一座城市”
 - 通过 `10.0.2.2:8090` 下载重庆归档，缓存 484 个条目，地图/路线 6.9 km
 - 中文道路/POI 标注在飞行模式下正常
 - 重庆核心区精细层 z16 下载后，缓存约 1289 条（1288 个 z16 瓦片），主城全区底图保持；地图包内“查看精细层”飞到 z16，地图/路线正常
@@ -79,7 +79,7 @@ M1 记录（旧）：
 - 旧 M1 冷启动 `TotalTime: 655 ms`；M2.1 未单独复测冷启动
 - 旧 M1 PSS 93.5 MB（M2.1 未复测）
 - 地图、路线、加地点、改停留、拖动排序、路线重算正常
-- 地图包下载/切换正常：重庆 17.6 MB，武汉 21.2 MB
+- 地图包下载/切换正常：重庆 41.2 MB，武汉 11.6 MB（含 POI 索引）
 - 飞行模式 + 关闭 Wi-Fi/数据，强停重开仍加载武汉地图和路线
 
 截图：

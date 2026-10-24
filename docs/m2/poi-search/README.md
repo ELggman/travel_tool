@@ -6,15 +6,18 @@
 
 ## 索引
 
-从 OSM PBF 重新提取所有有名字的地点、建筑、区域和车站，生成紧凑索引：
+从 OSM PBF 重新提取所有有名字的地点、建筑、区域和车站，生成紧凑索引，并随城市包一起发布：
 
 ```text
-app/public/poi/chongqing.json  20854 条  2.4 MB
-app/public/poi/wuhan.json      10661 条  1.2 MB
-app/public/poi/guiyang.json     2249 条  0.3 MB
+pack-source/<city>/pois.json  → <city>.yanlu-pack.zip
+重庆  20,854 条  2.4 MB
+武汉  10,661 条  1.2 MB
+贵阳   2,249 条  0.3 MB
 ```
 
 生成脚本：`spikes/scripts/extract_pois.py`（从 OSM PBF 直接提取，不重建地图/路网）。
+
+打包脚本：`app/scripts/build_pack_archives.py` 把 `pack-source/<city>/pois.json` 写入城市 zip，同时输出 `<city>-pois.json` 侧车文件供旧版缓存增量迁移。
 
 字段：
 
@@ -22,14 +25,14 @@ app/public/poi/guiyang.json     2249 条  0.3 MB
 {"name":"洪崖洞","kind":"tourism","kindValue":"attraction","lon":106.58,"lat":29.56}
 ```
 
-索引随 App 打包，搜索完全离线；不依赖地图包是否覆盖该建筑。
+索引随城市包下载到 CacheStorage，搜索读取本机缓存；删除城市包会一起删除索引。
 
 ## 搜索
 
 `AddPlaceSheet` 增加离线搜索：
 
 - 输入“医院”“商场”“洪崖洞”等关键词
-- 从 1.6 万条重庆地点中筛选
+- 从 2.0 万条重庆地点中筛选
 - 过滤公交站台/站牌节点
 - 同名地点去重
 - 覆盖有名字的建筑、住宅/商业区、学校、商铺、写字楼、车站，不再只收少数 POI 标签
@@ -43,7 +46,7 @@ app/public/poi/guiyang.json     2249 条  0.3 MB
 - 搜索“医院”得到“巴南区界石镇中心卫生院”“拜博口腔医院”“蔡家医院”等
 - 点击“巴南区界石镇中心卫生院”，行程从 4 个点变为 5 个点
 - 路线从 6.9 km 变为 29.6 km / 4 段，说明新地点参与算路
-- 搜索索引在断网下可用（App 内置）
+- 搜索索引在断网下可用（随城市包缓存；旧包首次搜索会从包服务器补下侧车索引）
 
 ![离线搜索](screenshots/search.png)
 
@@ -60,4 +63,4 @@ app/public/poi/guiyang.json     2249 条  0.3 MB
 - 仍受 OSM 收录限制：商业闭源 POI（高德/百度）不会出现在这里；某栋楼如果 OSM 没名字，索引也不会有
 - Android 这版还没安装验证
 - 地图点选附近 POI 半径 300 m；超过范围只提供自定义地点
-- APK 因 POI 索引增至约 1.2 MB
+- 索引不再内置 APK；APK 约 637 KB，城市包增大 0.3–2.5 MB

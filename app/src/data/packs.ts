@@ -37,18 +37,18 @@ export const packs: Record<CityId, PackInfo> = {
   chongqing: {
     id: 'chongqing', provinceId: 'chongqing', city: '重庆', short: '渝',
     title: '山城，向上走', tagline: '两江交汇，巷子尽头是江风',
-    sizeBytes: 78_486_871, version: '2026.10-wide', available: true, downloadedByDefault: true,
+    sizeBytes: 41_150_456, version: '2026.10-poi', available: true, downloadedByDefault: true,
     fine: { available: true, sizeBytes: 1_296_617, version: '2026.10-fine3', maxzoom: 16 },
   },
   wuhan: {
     id: 'wuhan', provinceId: 'hubei', city: '武汉', short: '鄂',
     title: '江城，过江去', tagline: '一桥两江，过早与晚风',
-    sizeBytes: 21_201_779, version: '2026.10', available: true, downloadedByDefault: false,
+    sizeBytes: 11_632_677, version: '2026.10-poi', available: true, downloadedByDefault: false,
   },
   guiyang: {
     id: 'guiyang', provinceId: 'guizhou', city: '贵阳', short: '黔',
     title: '黔中，慢一点', tagline: '山在城里，城在山里',
-    sizeBytes: 10_115_437, version: '2026.10', available: true, downloadedByDefault: false,
+    sizeBytes: 5_749_591, version: '2026.10-poi', available: true, downloadedByDefault: false,
   },
   harbin: {
     id: 'harbin', provinceId: 'heilongjiang', city: '哈尔滨', short: '黑',

@@ -215,12 +215,15 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
   const [query, setQuery] = useState('');
   const [pois, setPois] = useState<PoiEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadFailed(false);
     loadPoiIndex(city)
       .then((data) => { if (!cancelled) setPois(data); })
+      .catch(() => { if (!cancelled) setLoadFailed(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [city]);
@@ -266,7 +269,7 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索中文名、英文名或类别，如 洪崖洞 / 医院 / 商场" />
       </label>
       <p className="search-note">
-        {loading ? '正在读取离线索引…' : q ? `${count} 个结果` : '热门地点；输入关键词可搜索全城'}
+        {loadFailed ? '索引缺失：请检查包服务器，或重新下载该城市包' : loading ? '正在读取离线索引…' : q ? `${count} 个结果` : '热门地点；输入关键词可搜索全城'}
       </p>
       <div className="place-list">
         {curatedResults.map((place) => {
@@ -329,13 +332,16 @@ function distanceMeters(a: { lon: number; lat: number }, b: { lon: number; lat: 
 export function MapPickSheet({ city, point, existing, onAdd, onClose }: MapPickSheetProps) {
   const [pois, setPois] = useState<PoiEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [customName, setCustomName] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadFailed(false);
     loadPoiIndex(city)
       .then((data) => { if (!cancelled) setPois(data); })
+      .catch(() => { if (!cancelled) setLoadFailed(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [city]);
@@ -368,7 +374,7 @@ export function MapPickSheet({ city, point, existing, onAdd, onClose }: MapPickS
         <button className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
       </header>
       <p className="search-note">
-        {loading ? '正在查找附近地点…' : nearby.length ? `附近 ${nearby.length} 个 OSM 地点` : '附近没有已收录的 POI，可自定义'}
+        {loadFailed ? '索引缺失：请检查包服务器' : loading ? '正在查找附近地点…' : nearby.length ? `附近 ${nearby.length} 个 OSM 地点` : '附近没有已收录的 POI，可自定义'}
       </p>
       <div className="place-list">
         {nearby.map((p) => {

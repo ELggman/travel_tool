@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Package app/pack-source/<city> into app/pack-server/packs/<city>.yanlu-pack.zip."""
-import os, zipfile
+import os, shutil, zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'pack-source')
 OUT = os.path.join(ROOT, 'pack-server', 'packs')
@@ -20,3 +20,8 @@ for city in ['chongqing', 'wuhan', 'guiyang']:
                     rel = os.path.relpath(path, src)
                     z.write(path, rel)
         print(city + suffix, f'{os.path.getsize(out)/1e6:.1f} MB')
+        if suffix == '':
+            pois = os.path.join(src, 'pois.json')
+            if os.path.exists(pois):
+                shutil.copyfile(pois, os.path.join(OUT, f'{city}-pois.json'))
+                print(city + '-pois', f'{os.path.getsize(pois)/1e6:.1f} MB')
