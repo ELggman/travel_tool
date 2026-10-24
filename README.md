@@ -13,7 +13,7 @@
 - 单日行程：加地点、删地点、改停留、步行/打车、拖动排序；路线与时间自动重算；localStorage 持久化。
 - 中文道路/地点/POI 标注：本地 glyphs + 系统 CJK 字体，离线可用。
 - 可选精细底图：重庆核心区 z16 独立下载；标准包已扩到重庆主城全区。
-- 地图启动按低缩放 + 行程 bbox 优先加载，高缩放瓦片后台补齐。
+- 地图启动按低缩放 + 行程 bbox 优先加载，高缩放瓦片后台补齐；WebView 启动底色和上次地图预览减少白屏。
 - Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 637 KB；地图包从 pack server 下载。真机需填 Mac 局域网 IP，不需要科学上网。
 - 详细：[App 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)、[M2.2a 中文标注](docs/m2/labels/README.md)。
 

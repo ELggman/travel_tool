@@ -48,13 +48,13 @@ export function ensureTileUrls(city: string, variant: PackVariant = 'standard', 
       const ty1 = Math.floor((1 - Math.log(Math.tan(n * Math.PI / 180) + 1 / Math.cos(n * Math.PI / 180)) / Math.PI) / 2 * count);
       return x >= tx0 - 1 && x <= tx1 + 1 && y >= ty0 - 1 && y <= ty1 + 1;
     };
-    const low = variant === 'fine' ? requests : requests.filter((item) => zoomOf(item.path) <= 13);
+    const low = variant === 'fine' ? requests : requests.filter((item) => zoomOf(item.path) <= 10);
     const highNow = variant === 'standard'
-      ? requests.filter((item) => zoomOf(item.path) > 13 && inBBox(item.path))
+      ? requests.filter((item) => zoomOf(item.path) > 10 && inBBox(item.path))
       : [];
     await Promise.all([...low, ...highNow].map(materialize));
     if (variant === 'standard') {
-      const rest = requests.filter((item) => zoomOf(item.path) > 13 && !inBBox(item.path));
+      const rest = requests.filter((item) => zoomOf(item.path) > 10 && !inBBox(item.path));
       void Promise.all(rest.map(materialize))
         .then(() => loaded.add(key))
         .catch(() => {});

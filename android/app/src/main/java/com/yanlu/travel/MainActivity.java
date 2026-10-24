@@ -2,6 +2,8 @@ package com.yanlu.travel;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -25,6 +27,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        getWindow().setBackgroundDrawable(new ColorDrawable(0xFFF2EDE1));
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.rgb(30, 40, 34));
         getWindow().setNavigationBarColor(Color.rgb(30, 40, 34));
@@ -40,6 +43,7 @@ public class MainActivity extends Activity {
         }
 
         webView = new WebView(this);
+        webView.setBackgroundColor(0xFFF2EDE1);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);

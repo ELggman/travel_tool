@@ -37,11 +37,17 @@ function initialPersisted(): Persisted {
         const savedTrip = saved.trips?.[city];
         trips[city] = savedTrip && savedTrip.day?.stops?.length ? savedTrip : seedTrip(city);
       }
-      const active = saved.activeCity && availableCities.includes(saved.activeCity as AvailableCityId)
+      const savedDownloaded = Array.isArray(saved.downloaded)
+        ? saved.downloaded.filter((id): id is CityId => availableCities.includes(id as AvailableCityId))
+        : [];
+      const savedFine = Array.isArray(saved.fineDownloaded)
+        ? saved.fineDownloaded.filter((id): id is CityId => availableCities.includes(id as AvailableCityId))
+        : [];
+      const active = saved.activeCity && savedDownloaded.includes(saved.activeCity)
         ? saved.activeCity as AvailableCityId
-        : 'chongqing';
-      // CacheStorage is the source of truth; boot() fills this list asynchronously.
-      return { activeCity: active, downloaded: [], fineDownloaded: [], trips };
+        : (savedDownloaded[0] as AvailableCityId | undefined) ?? 'chongqing';
+      // Render from the last known state immediately; cache validation runs in the background.
+      return { activeCity: active, downloaded: savedDownloaded, fineDownloaded: savedFine, trips };
     }
   } catch {
     // fall through to seed
@@ -78,7 +84,7 @@ function App() {
   const [progress, setProgress] = useState<Partial<Record<CityId, number>>>({});
   const [packError, setPackError] = useState<string | null>(null);
   const [deleteConfirmCity, setDeleteConfirmCity] = useState<AvailableCityId | null>(null);
-  const [booted, setBooted] = useState(false);
+  const [booted, setBooted] = useState(true);
   const [packBase, setPackBase] = useState(getPackBaseUrl);
   const [fineProgress, setFineProgress] = useState<Partial<Record<CityId, number>>>({});
   const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
