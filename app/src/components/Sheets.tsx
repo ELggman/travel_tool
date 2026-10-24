@@ -196,6 +196,8 @@ const KIND_LABELS: Record<string, string> = {
   government: '政府机构', townhall: '政府机构', office: '写字楼',
   commercial: '商业', retail: '商店', yes: '地点',
   place: '地名', neighbourhood: '社区', locality: '地名',
+  building: '建筑', landuse: '区域', railway: '车站', public_transport: '公共交通',
+  residential: '住宅区', industrial: '工业区',
 };
 
 function categoryLabel(p: PoiEntry): string {
@@ -243,7 +245,7 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
         const bStarts = bn.startsWith(q) ? 0 : 1;
         return aStarts - bStarts || an.localeCompare(bn, 'zh-Hans-CN');
       })
-      .slice(0, 40);
+      .slice(0, 100);
   }, [pois, q]);
 
   const curatedResults = curated.filter((p) => !q || `${p.name}${p.category}`.toLowerCase().includes(q));
@@ -261,7 +263,7 @@ export function AddPlaceSheet({ city, existing, onAdd, onClose }: AddPlaceSheetP
       </header>
       <label className="search-field">
         <span>⌕</span>
-        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索地点、类别，如 洪崖洞 / 医院 / 商场" />
+        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索中文名、英文名或类别，如 洪崖洞 / 医院 / 商场" />
       </label>
       <p className="search-note">
         {loading ? '正在读取离线索引…' : q ? `${count} 个结果` : '热门地点；输入关键词可搜索全城'}

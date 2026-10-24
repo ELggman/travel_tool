@@ -6,13 +6,15 @@
 
 ## 索引
 
-从现有 OSM PBF 提取的 landmarks 生成紧凑索引：
+从 OSM PBF 重新提取所有有名字的地点、建筑、区域和车站，生成紧凑索引：
 
 ```text
-app/public/poi/chongqing.json  16082 条  1.9 MB
-app/public/poi/wuhan.json       6575 条  0.8 MB
-app/public/poi/guiyang.json     1762 条  0.2 MB
+app/public/poi/chongqing.json  20854 条  2.4 MB
+app/public/poi/wuhan.json      10661 条  1.2 MB
+app/public/poi/guiyang.json     2249 条  0.3 MB
 ```
+
+生成脚本：`spikes/scripts/extract_pois.py`（从 OSM PBF 直接提取，不重建地图/路网）。
 
 字段：
 
@@ -30,6 +32,8 @@ app/public/poi/guiyang.json     1762 条  0.2 MB
 - 从 1.6 万条重庆地点中筛选
 - 过滤公交站台/站牌节点
 - 同名地点去重
+- 覆盖有名字的建筑、住宅/商业区、学校、商铺、写字楼、车站，不再只收少数 POI 标签
+- 结果上限从 40 提到 100
 - 点击结果直接加入当天行程，路线/时间自动重算
 - 地图点选：点地图任意位置，查找 300 m 内的离线 POI；没有匹配时可自定义名称按坐标加入
 - 没有结果时显示空状态
@@ -53,6 +57,7 @@ app/public/poi/guiyang.json     1762 条  0.2 MB
 - 搜索是简单子串匹配 + 名称排序，还没有拼音、别名、分类权重
 - 地图点选已做；下一步是多日行程
 - 同名不同分店会被去重，只保留一个结果
+- 仍受 OSM 收录限制：商业闭源 POI（高德/百度）不会出现在这里；某栋楼如果 OSM 没名字，索引也不会有
 - Android 这版还没安装验证
 - 地图点选附近 POI 半径 300 m；超过范围只提供自定义地点
-- APK 因 POI 索引增至约 1.0 MB
+- APK 因 POI 索引增至约 1.2 MB
