@@ -144,9 +144,8 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
             {
               id: 'fine-poi-labels', type: 'symbol', source: 'fine', 'source-layer': 'pois',
               minzoom: 16,
-              filter: ['all', ['has', 'name'], ['match', ['get', 'kind'],
-                ['attraction', 'museum', 'hospital', 'park', 'peak', 'station', 'mall', 'hotel',
-                  'monument', 'memorial', 'viewpoint', 'place_of_worship', 'library'], true, false]],
+              filter: ['all', ['has', 'name'],
+                ['match', ['get', 'kind'], ['administrative', 'railway', 'highway'], false, true]],
               layout: {
                 'text-field': ['coalesce', ['get', 'name:zh-Hans'], ['get', 'name:zh'], ['get', 'name']],
                 'text-font': ['NotoSansSC'],
@@ -213,11 +212,8 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
           {
             id: 'poi-labels', type: 'symbol', source: 'base', 'source-layer': 'pois',
             minzoom: 14,
-            filter: ['all', ['has', 'name'], ['match', ['get', 'kind'],
-              ['hospital', 'school', 'university', 'college', 'park', 'museum', 'attraction',
-                'peak', 'station', 'subway_station', 'bus_station', 'ferry_terminal', 'aerodrome',
-                'place_of_worship', 'library', 'theatre', 'zoo', 'stadium', 'theme_park',
-                'marketplace', 'townhall', 'monument', 'memorial', 'viewpoint', 'mall', 'hotel'], true, false],
+            filter: ['all', ['has', 'name'],
+              ['match', ['get', 'kind'], ['administrative', 'railway', 'highway'], false, true],
               ['>=', ['zoom'], ['to-number', ['get', 'min_zoom']]]],
             layout: {
               'text-field': ['coalesce', ['get', 'name:zh-Hans'], ['get', 'name:zh'], ['get', 'name']],

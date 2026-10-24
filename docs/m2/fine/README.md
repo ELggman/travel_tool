@@ -97,6 +97,8 @@ MapView 使用两个 source：
 
 ![查看精细层](screenshots/web-fine-focus.png)
 
+![建筑/POI 名称](screenshots/web-poi-labels.png)
+
 ![Android 精细 z16](screenshots/android-fine-z16.png)
 
 ![Android 精细离线](screenshots/android-fine-offline.png)
