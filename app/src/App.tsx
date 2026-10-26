@@ -160,6 +160,13 @@ function App() {
     if (page === 'day') setMapMounted(true);
   }, [page]);
 
+  // Warm the day map after the overview has settled, without blocking first paint.
+  useEffect(() => {
+    if (mapMounted || page !== 'overview' || !state.downloaded.length) return;
+    const timer = window.setTimeout(() => setMapMounted(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [mapMounted, page, state.downloaded.length]);
+
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 2400);
@@ -938,7 +945,12 @@ function App() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
           <span>行程</span>
         </button>
-        <button className={page === 'day' ? 'active' : ''} onClick={() => setPage('day')}>
+        <button
+          className={page === 'day' ? 'active' : ''}
+          onClick={() => { setPage('day'); setMapMounted(true); }}
+          onPointerEnter={() => setMapMounted(true)}
+          onTouchStart={() => setMapMounted(true)}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" /><circle cx="12" cy="10" r="2.2" /></svg>
           <span>当天</span>
         </button>
