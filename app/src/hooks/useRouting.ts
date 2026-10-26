@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AvailableCityId, LegRoute, Stop } from '../data/types';
+import type { AvailableCityId, Day, LegRoute, Stop } from '../data/types';
 import { haversine } from '../utils';
 
 type WorkerReply = {
@@ -27,24 +27,29 @@ function fallback(from: Stop, to: Stop, mode: 'walk' | 'taxi'): LegRoute {
   };
 }
 
-export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true) {
-  const [legs, setLegs] = useState<LegRoute[]>([]);
+type DayPair = {
+  dayId: string;
+  city: AvailableCityId;
+  from: Stop;
+  to: Stop;
+  mode: 'walk' | 'taxi';
+};
+
+export function useRouting(city: AvailableCityId, days: Day[], activeDayId: string, enabled = true) {
+  const [routesByDay, setRoutesByDay] = useState<Record<string, LegRoute[]>>({});
   const [loading, setLoading] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
   const workerRef = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<number, (reply: WorkerReply) => void>());
   const tokenRef = useRef(0);
-  const readyPromise = useRef<Promise<void> | null>(null);
-  const readyResolve = useRef<(() => void) | null>(null);
+  const sentGraphs = useRef(new Set<string>());
 
   useEffect(() => {
-    readyPromise.current = new Promise((resolve) => { readyResolve.current = resolve; });
     const worker = new Worker(new URL('../routing/worker.ts', import.meta.url), { type: 'module' });
     workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WorkerReply | { type: string; key?: string }>) => {
       if ('type' in event.data) {
-        console.debug('[yanlu] worker message', event.data.type, event.data.key ?? '');
-        if (event.data.type === 'worker-ready') { readyResolve.current?.(); setWorkerReady(true); }
+        if (event.data.type === 'worker-ready') setWorkerReady(true);
         return;
       }
       const resolve = pendingRef.current.get(event.data.id);
@@ -59,7 +64,6 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
       worker.terminate();
       workerRef.current = null;
       pendingRef.current.clear();
-      readyResolve.current?.();
       setWorkerReady(false);
     };
   }, []);
@@ -67,7 +71,7 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
   useEffect(() => {
     const token = ++tokenRef.current;
     if (!enabled) {
-      setLegs([]);
+      setRoutesByDay({});
       setLoading(false);
       return;
     }
@@ -75,68 +79,93 @@ export function useRouting(city: AvailableCityId, stops: Stop[], enabled = true)
       setLoading(true);
       return;
     }
-    if (stops.length < 2) {
-      setLegs([]);
+
+    const pairs: DayPair[] = [];
+    for (const day of days) {
+      const dayCity = (day.cityId ?? city) as AvailableCityId;
+      for (let i = 0; i < day.stops.length - 1; i += 1) {
+        const from = day.stops[i];
+        const to = day.stops[i + 1];
+        pairs.push({ dayId: day.id, city: dayCity, from, to, mode: from.transportToNext });
+      }
+    }
+    if (!pairs.length) {
+      setRoutesByDay(Object.fromEntries(days.map((day) => [day.id, []])));
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const pairs = stops.slice(0, -1).map((from, i) => ({ from, to: stops[i + 1], mode: from.transportToNext }));
-    const ensureGraph = (mode: 'walk' | 'taxi') => {
-      const worker = workerRef.current;
-      if (!worker) return Promise.reject(new Error('routing worker not ready'));
-      worker.postMessage({
-        type: 'graph-ref',
-        city,
-        mode,
-        cacheName: `yanlu-pack-v2-${city}`,
-        url: `https://yanlu.local/packs/${city}/${mode === 'walk' ? 'walk' : 'car'}.json`,
-      });
-      return Promise.resolve();
-    };
 
-    const run = async (from: Stop, to: Stop, mode: 'walk' | 'taxi') => {
+    setLoading(true);
+    const cities = new Map<string, { city: AvailableCityId; mode: 'walk' | 'taxi' }>();
+    for (const pair of pairs) cities.set(`${pair.city}-${pair.mode}`, { city: pair.city, mode: pair.mode });
+    for (const { city: graphCity, mode } of cities.values()) {
+      const key = `${graphCity}-${mode}`;
+      if (sentGraphs.current.has(key)) continue;
+      sentGraphs.current.add(key);
+      workerRef.current?.postMessage({
+        type: 'graph-ref',
+        city: graphCity,
+        mode,
+        cacheName: `yanlu-pack-v2-${graphCity}`,
+        url: `https://yanlu.local/packs/${graphCity}/${mode === 'walk' ? 'walk' : 'car'}.json`,
+      });
+    }
+
+    const run = async (pair: DayPair): Promise<LegRoute> => {
       const worker = workerRef.current;
-      if (!worker) return fallback(from, to, mode);
+      if (!worker) return fallback(pair.from, pair.to, pair.mode);
       const id = ++requestCounter;
       const reply = await new Promise<WorkerReply>((resolve) => {
         const timer = window.setTimeout(() => {
           pendingRef.current.delete(id);
           resolve({ id, ok: false, error: 'timeout' });
-        }, 7000);
-        pendingRef.current.set(id, (r) => {
+        }, 9000);
+        pendingRef.current.set(id, (reply) => {
           window.clearTimeout(timer);
-          resolve(r);
+          resolve(reply);
         });
-        worker.postMessage({ id, city, mode, from: [from.lon, from.lat], to: [to.lon, to.lat] });
+        worker.postMessage({
+          id,
+          city: pair.city,
+          mode: pair.mode,
+          from: [pair.from.lon, pair.from.lat],
+          to: [pair.to.lon, pair.to.lat],
+        });
       });
       if (!reply.ok || !reply.coordinates) {
-        console.warn('[yanlu] route fallback', reply.error, from.name, to.name);
-        return fallback(from, to, mode);
+        return fallback(pair.from, pair.to, pair.mode);
       }
       return {
-        fromStopId: from.id,
-        toStopId: to.id,
-        mode,
+        fromStopId: pair.from.id,
+        toStopId: pair.to.id,
+        mode: pair.mode,
         distanceM: reply.distanceM ?? 0,
         durationMin: reply.durationMin ?? 0,
         coordinates: reply.coordinates,
         ok: true,
-      } satisfies LegRoute;
+      };
     };
 
-    Promise.all([...new Set(pairs.map((p) => p.mode))].map(ensureGraph))
-      .then(() => Promise.all(pairs.map((p) => run(p.from, p.to, p.mode))))
-      .then((next) => {
+    Promise.all(pairs.map(async (pair) => ({ pair, leg: await run(pair) })))
+      .then((results) => {
         if (token !== tokenRef.current) return;
-        setLegs(next);
+        const next: Record<string, LegRoute[]> = Object.fromEntries(days.map((day) => [day.id, []]));
+        for (const { pair, leg } of results) next[pair.dayId].push(leg);
+        setRoutesByDay(next);
         setLoading(false);
-      }).catch(() => {
-      if (token !== tokenRef.current) return;
-      setLegs(pairs.map((p) => fallback(p.from, p.to, p.mode)));
-      setLoading(false);
-    });
-  }, [city, stops, workerReady, enabled]);
+      })
+      .catch(() => {
+        if (token !== tokenRef.current) return;
+        const next: Record<string, LegRoute[]> = Object.fromEntries(days.map((day) => [day.id, []]));
+        for (const pair of pairs) next[pair.dayId].push(fallback(pair.from, pair.to, pair.mode));
+        setRoutesByDay(next);
+        setLoading(false);
+      });
+  }, [city, days, workerReady, enabled]);
 
-  return { legs, loading };
+  return {
+    legs: routesByDay[activeDayId] ?? [],
+    routesByDay,
+    loading,
+  };
 }

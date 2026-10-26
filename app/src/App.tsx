@@ -145,7 +145,7 @@ function App() {
   const previewTheme = previewCity ? themes[previewCity] : baseTheme;
   const pageTheme = packOpen ? previewTheme : baseTheme;
 
-  const { legs, loading } = useRouting(dayCity, stops, state.downloaded.includes(dayCity));
+  const { legs, routesByDay, loading } = useRouting(dayCity, trip.days, activeDay.id, state.downloaded.includes(dayCity));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
@@ -207,6 +207,8 @@ function App() {
   const totalMinutes = timeline.length
     ? timeline[timeline.length - 1].leave - parseTime(activeDay.startTime)
     : 0;
+  const tripMeters = Object.values(routesByDay).flat().reduce((sum, leg) => sum + leg.distanceM, 0);
+  const tripRouteMinutes = Object.values(routesByDay).flat().reduce((sum, leg) => sum + leg.durationMin, 0);
   const totalStops = trip.days.reduce((sum, day) => sum + day.stops.length, 0);
   const totalStayMinutes = trip.days.reduce(
     (sum, day) => sum + day.stops.reduce((daySum, stop) => daySum + stop.durationMin, 0),
@@ -694,7 +696,7 @@ function App() {
       <div><strong>{trip.days.length}</strong><span>天</span></div>
       <div><strong>{totalStops}</strong><span>个地点</span></div>
       <div><strong>{totalStayMinutes ? formatDuration(totalStayMinutes) : '—'}</strong><span>总停留</span></div>
-      <div><strong>{totalMeters ? formatKm(totalMeters) : '—'}</strong><span>当天路线</span></div>
+      <div><strong>{tripMeters ? formatKm(tripMeters) : '—'}</strong><span>全行程</span></div>
     </section>
   );
 
@@ -845,7 +847,7 @@ function App() {
                     </div>
                     <div className="overview-day-main">
                       <h3>{day.title || `第 ${index + 1} 天`}</h3>
-                      <p>{day.stops.length} 个地点 · {stay ? formatDuration(stay) : '未安排'} · {city}</p>
+                      <p>{day.stops.length} 个地点 · {stay ? formatDuration(stay) : '未安排'} · {city}{routesByDay[day.id]?.length ? ` · ${formatKm(routesByDay[day.id].reduce((sum, leg) => sum + leg.distanceM, 0))}` : ''}</p>
                       {day.stops.length > 0 && <small>{day.stops.map((stop) => stop.name).slice(0, 3).join(' · ')}{day.stops.length > 3 ? ' …' : ''}</small>}
                       {day.lodging && <small>住宿 · {day.lodging.name}</small>}
                     </div>
@@ -928,7 +930,7 @@ function App() {
             <div className="people-title"><strong>当前行程</strong><span>{pack.city}</span></div>
             <div className="people-trip-meta">
               <span>{trip.startDate} — {trip.days[trip.days.length - 1].date}</span>
-              <span>{trip.days.length} 天 · {totalStops} 个地点</span>
+              <span>{trip.days.length} 天 · {totalStops} 个地点 · {tripMeters ? formatKm(tripMeters) : '—'}</span>
             </div>
             <button className="text-btn" onClick={() => { setPage('overview'); setNotice('回到行程总览'); }}>打开行程总览 →</button>
           </section>
