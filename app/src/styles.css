@@ -345,3 +345,9 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .day-tab-add small { color: var(--accent); }
 .day-tab-delete { position: absolute; right: 3px; top: 2px; font-style: normal; font-size: 10px; color: var(--muted); width: 15px; height: 15px; line-height: 14px; text-align: center; border-radius: 50%; }
 .day-tab-delete:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.trip-start-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px 0; }
+.trip-start { display: flex; align-items: center; gap: 7px; font-size: 8px; color: var(--muted); letter-spacing: .03em; }
+.trip-start input { border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--paper) 60%, transparent); color: var(--ink); font-size: 10px; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+.trip-start-row > span { font-size: 7px; color: var(--muted); }
+.trip-start-row { flex-wrap: wrap; }
+.day-copy { margin-left: auto; font-size: 8px; }

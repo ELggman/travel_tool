@@ -105,6 +105,7 @@ export function seedTrip(city: AvailableCityId): Trip {
     id: `trip-${city}`,
     cityId: city,
     title: packs[city].title,
+    startDate: date,
     days: [day],
     activeDayId: day.id,
   };

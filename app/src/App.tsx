@@ -50,11 +50,13 @@ function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
   const rawDays = Array.isArray(raw.days) ? raw.days : legacy.day ? [legacy.day] : [];
   const days = rawDays.length ? rawDays.map((day, i) => normalizeDay(day, i, city)) : fallback.days;
   const activeDayId = days.some((day) => day.id === raw.activeDayId) ? raw.activeDayId : days[0].id;
+  const startDate = raw.startDate || days[0].date || new Date().toISOString().slice(0, 10);
   return {
     id: raw.id || fallback.id,
     cityId: city,
     title: raw.title || fallback.title,
-    days,
+    startDate,
+    days: days.map((day, i) => ({ ...day, date: addDays(startDate, i) })),
     activeDayId,
   };
 }
@@ -224,6 +226,24 @@ function App() {
     setStopOpenId(null);
   };
 
+  const setStartDate = (startDate: string) => {
+    if (!startDate) return;
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            startDate,
+            days: currentTrip.days.map((day, i) => ({ ...day, date: addDays(startDate, i) })),
+          },
+        },
+      };
+    });
+  };
+
   const addDay = () => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
@@ -231,7 +251,7 @@ function App() {
       const index = currentTrip.days.length + 1;
       const day: Day = {
         id: `day-${prev.activeCity}-${index}-${Date.now()}`,
-        date: addDays(last.date, 1),
+        date: addDays(currentTrip.startDate, currentTrip.days.length),
         label: `DAY ${String(index).padStart(2, '0')}`,
         startTime: last.startTime,
         stops: [],
@@ -250,6 +270,33 @@ function App() {
     });
     setActiveStopId(null);
     setStopOpenId(null);
+  };
+
+  const copyPreviousDay = () => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      const index = currentTrip.days.findIndex((day) => day.id === currentTrip.activeDayId);
+      if (index <= 0) return prev;
+      const source = currentTrip.days[index - 1];
+      const target = currentTrip.days[index];
+      const existing = new Set(target.stops.map((stop) => stop.placeId));
+      const copies = source.stops
+        .filter((stop) => !existing.has(stop.placeId))
+        .map((stop, i) => ({ ...stop, id: `${stop.id}-copy-${Date.now()}-${i}` }));
+      if (!copies.length) return prev;
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === target.id
+              ? { ...day, stops: [...day.stops, ...copies] }
+              : day)),
+          },
+        },
+      };
+    });
   };
 
   const requestDeleteDay = (dayId: string) => {
@@ -514,6 +561,12 @@ function App() {
           />
           <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
         </section>
+
+        <div className="trip-start-row">
+          <label className="trip-start">行程出发日期<input type="date" value={trip.startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+          <span>{trip.days.length} 天 · 每天独立路线</span>
+          {activeDayIndex > 0 && <button className="text-btn day-copy" onClick={copyPreviousDay}>复制前一天</button>}
+        </div>
 
         <section className="day-tabs" aria-label="行程日期">
           {trip.days.map((day, index) => (

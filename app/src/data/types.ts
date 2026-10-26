@@ -35,6 +35,7 @@ export type Trip = {
   id: string;
   cityId: AvailableCityId;
   title: string;
+  startDate: string;
   days: Day[];
   activeDayId: string;
 };
