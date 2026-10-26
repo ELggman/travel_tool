@@ -130,6 +130,7 @@ function App() {
   const [lodgingOpen, setLodgingOpen] = useState(false);
   const [page, setPage] = useState<'overview' | 'day' | 'people'>('overview');
   const [notice, setNotice] = useState<string | null>(null);
+  const [mapMounted, setMapMounted] = useState(false);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
@@ -153,6 +154,10 @@ function App() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [page]);
+
+  useEffect(() => {
+    if (page === 'day') setMapMounted(true);
   }, [page]);
 
   useEffect(() => {
@@ -852,8 +857,8 @@ function App() {
         </main>
       )}
 
-      {page === 'day' && (
-        <main className="day-page">
+      {mapMounted && (
+        <main className={`day-page page-view${page === 'day' ? '' : ' is-hidden'}`} aria-hidden={page !== 'day'}>
           <div className="day-page-head">
             <button className="page-back" onClick={() => setPage('overview')}>← 行程总览</button>
             <span>{activeDay.label} · {dateLabel(activeDay.date)}</span>
@@ -870,6 +875,7 @@ function App() {
               activeStopId={activeStopId}
               onSelectStop={(id) => { setActiveStopId(id); setStopOpenId(id); }}
               onMapPick={setMapPick}
+              active={page === 'day'}
             />
             <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
           </section>

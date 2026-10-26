@@ -13,9 +13,10 @@ type Props = {
   activeStopId: string | null;
   onSelectStop: (id: string) => void;
   onMapPick?: (point: { lon: number; lat: number }) => void;
+  active?: boolean;
 };
 
-export default function MapView({ city, fine = false, focusFine = 0, theme, stops, legs, activeStopId, onSelectStop, onMapPick }: Props) {
+export default function MapView({ city, fine = false, focusFine = 0, theme, stops, legs, activeStopId, onSelectStop, onMapPick, active = true }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
@@ -44,6 +45,18 @@ export default function MapView({ city, fine = false, focusFine = 0, theme, stop
     if (fine) void ensureTileUrls(city, 'fine');
     return () => { cancelled = true; };
   }, [city, fine]);
+
+  useEffect(() => {
+    if (!active || !ready) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const frame = requestAnimationFrame(() => {
+      map.resize();
+      fit(map, stops, legs);
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, ready]);
 
   useEffect(() => {
     if (!focusFine || !mapRef.current || !ready) return;
