@@ -99,6 +99,7 @@ export function seedTrip(city: AvailableCityId): Trip {
     date,
     label: 'DAY 01',
     title: '第 1 天',
+    cityId: city,
     startTime: '09:30',
     stops,
   };

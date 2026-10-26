@@ -37,6 +37,7 @@ export type Day = {
   date: string;
   label: string;
   title?: string;
+  cityId?: AvailableCityId;
   startTime: string;
   stops: Stop[];
   lodging?: Lodging;

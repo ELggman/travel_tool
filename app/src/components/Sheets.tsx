@@ -424,8 +424,9 @@ type StopSheetProps = {
   stop: Stop;
   index: number;
   isLast: boolean;
-  days: { id: string; label: string; title?: string }[];
+  days: { id: string; label: string; title?: string; cityId?: AvailableCityId }[];
   currentDayId: string;
+  currentDayCity?: AvailableCityId;
   onClose: () => void;
   onChange: (patch: Partial<Stop>) => void;
   onDelete: () => void;
@@ -433,7 +434,7 @@ type StopSheetProps = {
 };
 
 export function StopSheet({
-  stop, index, isLast, days, currentDayId, onClose, onChange, onDelete, onCopyToDay,
+  stop, index, isLast, days, currentDayId, currentDayCity, onClose, onChange, onDelete, onCopyToDay,
 }: StopSheetProps) {
   return (
     <Sheet onClose={onClose}>
@@ -517,7 +518,7 @@ export function StopSheet({
       <div className="copy-to-day">
         <label>复制到另一天</label>
         <div className="copy-day-list">
-          {days.filter((day) => day.id !== currentDayId).map((day) => (
+          {days.filter((day) => day.id !== currentDayId && (!currentDayCity || !day.cityId || day.cityId === currentDayCity)).map((day) => (
             <button key={day.id} className="copy-day-btn" onClick={() => onCopyToDay(day.id)}>
               <strong>{day.label}</strong>
               <small>{day.title || '未命名'}</small>

@@ -39,6 +39,7 @@ function normalizeDay(day: Day, index: number, city: AvailableCityId): Day {
     date: day.date || new Date().toISOString().slice(0, 10),
     label: day.label || `DAY ${String(index + 1).padStart(2, '0')}`,
     title: day.title || `第 ${index + 1} 天`,
+    cityId: day.cityId && availableCities.includes(day.cityId) ? day.cityId : city,
     startTime: day.startTime || '09:30',
     stops: Array.isArray(day.stops) ? day.stops : [],
     lodging: day.lodging,
@@ -133,14 +134,15 @@ function App() {
   const trip = state.trips[activeCity];
   const activeDay = trip.days.find((day) => day.id === trip.activeDayId) ?? trip.days[0];
   const activeDayIndex = trip.days.findIndex((day) => day.id === activeDay.id);
+  const dayCity = activeDay.cityId && state.downloaded.includes(activeDay.cityId) ? activeDay.cityId : activeCity;
   const stops = activeDay.stops;
-  const pack = packs[activeCity];
-  const province = provinceOf(activeCity);
-  const baseTheme = themes[activeCity];
+  const pack = packs[dayCity];
+  const province = provinceOf(dayCity);
+  const baseTheme = themes[dayCity];
   const previewTheme = previewCity ? themes[previewCity] : baseTheme;
   const pageTheme = packOpen ? previewTheme : baseTheme;
 
-  const { legs, loading } = useRouting(activeCity, stops, state.downloaded.includes(activeCity));
+  const { legs, loading } = useRouting(dayCity, stops, state.downloaded.includes(dayCity));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
@@ -286,6 +288,24 @@ function App() {
     setLodgingOpen(false);
   };
 
+  const updateDayCity = (city: AvailableCityId) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, cityId: city } : day)),
+          },
+        },
+      };
+    });
+    setActiveStopId(null);
+    setStopOpenId(null);
+  };
+
   const addDay = () => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
@@ -296,6 +316,7 @@ function App() {
         date: addDays(currentTrip.startDate, currentTrip.days.length),
         label: `DAY ${String(index).padStart(2, '0')}`,
         title: `第 ${index} 天`,
+        cityId: currentTrip.days[currentTrip.days.length - 1].cityId ?? prev.activeCity,
         startTime: last.startTime,
         stops: [],
       };
@@ -334,7 +355,7 @@ function App() {
           [prev.activeCity]: {
             ...currentTrip,
             days: currentTrip.days.map((day) => (day.id === target.id
-              ? { ...day, stops: [...day.stops, ...copies] }
+              ? { ...day, cityId: source.cityId ?? day.cityId, stops: [...day.stops, ...copies] }
               : day)),
           },
         },
@@ -527,7 +548,7 @@ function App() {
   const titleParts = pack.title.split('，');
   const packSheet = packOpen ? (
     <PackSheet
-      activeCity={activeCity}
+      activeCity={dayCity}
       downloaded={state.downloaded}
       previewCity={previewCity}
       progress={progress}
@@ -591,7 +612,7 @@ function App() {
           </span>
           <span><b>沿路</b><small>YANLU</small></span>
         </div>
-        <button className="city-pill" onClick={() => { setPackOpen(true); setPreviewCity(activeCity); }}>
+        <button className="city-pill" onClick={() => { setPackOpen(true); setPreviewCity(dayCity); }}>
           <span className="city-seal">{pack.short}</span>
           <span className="city-pill-text"><strong>{province.name === pack.city ? pack.city : `${province.name} · ${pack.city}`}</strong><small>{state.downloaded.includes(activeCity) ? '离线包已就绪' : '下载地图包'}</small></span>
           <span className="chev">⌄</span>
@@ -616,8 +637,8 @@ function App() {
 
         <section className="map-card">
           <MapView
-            city={activeCity}
-            fine={state.fineDownloaded.includes(activeCity)}
+            city={dayCity}
+            fine={state.fineDownloaded.includes(dayCity)}
             focusFine={focusFine}
             theme={baseTheme}
             stops={stops}
@@ -632,6 +653,9 @@ function App() {
         <div className="trip-start-row">
           <label className="trip-start">行程出发日期<input type="date" value={trip.startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
           <span>{trip.days.length} 天 · 每天独立路线</span>
+          <label className="day-city-select">城市<select value={dayCity} onChange={(e) => updateDayCity(e.target.value as AvailableCityId)}>
+            {state.downloaded.map((city) => <option key={city} value={city}>{packs[city].city}</option>)}
+          </select></label>
           {activeDayIndex > 0 && <button className="text-btn day-copy" onClick={copyPreviousDay}>复制前一天</button>}
         </div>
 
@@ -744,10 +768,10 @@ function App() {
       </main>
 
       {packSheet}
-      {addOpen && <AddPlaceSheet city={activeCity} existing={stops.map((s) => s.placeId)} onAdd={addPlace} onClose={() => setAddOpen(false)} />}
+      {addOpen && <AddPlaceSheet city={dayCity} existing={stops.map((s) => s.placeId)} onAdd={addPlace} onClose={() => setAddOpen(false)} />}
       {mapPick && (
         <MapPickSheet
-          city={activeCity}
+          city={dayCity}
           point={mapPick}
           existing={stops.map((s) => s.placeId)}
           onAdd={(place) => { addPlace(place); setMapPick(null); }}
@@ -762,8 +786,9 @@ function App() {
           stop={selectedStop}
           index={selectedIndex}
           isLast={selectedIndex === stops.length - 1}
-          days={trip.days.map((day) => ({ id: day.id, label: day.label, title: day.title }))}
+          days={trip.days.map((day) => ({ id: day.id, label: day.label, title: day.title, cityId: day.cityId ?? activeCity }))}
           currentDayId={activeDay.id}
+          currentDayCity={dayCity}
           onClose={() => setStopOpenId(null)}
           onChange={(patch) => updateStop(selectedStop.id, patch)}
           onDelete={() => deleteStop(selectedStop.id)}
