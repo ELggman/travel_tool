@@ -16,6 +16,7 @@ import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
+import { fetchLanSnapshot, lanSupported, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -133,6 +134,11 @@ function App() {
   const [page, setPage] = useState<'overview' | 'day' | 'people'>('overview');
   const [notice, setNotice] = useState<string | null>(null);
   const [mapMounted, setMapMounted] = useState(false);
+  const [lanInfo, setLanInfo] = useState<LanInfo | null>(null);
+  const [lanGuest, setLanGuest] = useState({ ip: '', port: '8766', room: '' });
+  const [lanStatus, setLanStatus] = useState('');
+  const [lanBusy, setLanBusy] = useState(false);
+  const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
@@ -635,6 +641,103 @@ function App() {
     }
   };
 
+  const applyRemoteTrip = (raw: Trip) => {
+    if (!raw || !Array.isArray(raw.days) || !raw.days.length) return;
+    const city = availableCities.includes(raw.cityId) ? raw.cityId : activeCity;
+    const next = normalizeTrip(raw, city);
+    setState((prev) => ({
+      ...prev,
+      activeCity: city,
+      trips: { ...prev.trips, [city]: next },
+    }));
+    setNotice('已接收同行设备的行程');
+  };
+
+  const startRoom = async () => {
+    if (!lanSupported()) { setLanStatus('局域网功能只在 Android App 内可用'); return; }
+    setLanBusy(true);
+    try {
+      const info = startLanHost();
+      if (!info.ok) throw new Error(info.error ?? '启动失败');
+      setLanInfo(info);
+      setLanRole('host');
+      setLanStatus(`房间 ${info.room} 已开启`);
+    } catch (err) {
+      setLanStatus(`开启失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLanBusy(false);
+    }
+  };
+
+  const closeRoom = () => {
+    if (lanSupported()) stopLanHost();
+    setLanInfo(null);
+    setLanRole(null);
+    setLanStatus('房间已关闭');
+  };
+
+  const publishHost = () => {
+    if (!lanInfo) return;
+    try {
+      const result = publishLanSnapshot(lanInfo, trip);
+      if (!result.ok) throw new Error(result.error ?? '发布失败');
+      setLanInfo({ ...lanInfo, version: result.version ?? lanInfo.version });
+      setLanStatus(`已发布当前行程 · v${result.version ?? ''}`);
+    } catch (err) {
+      setLanStatus(`发布失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const pullHost = async () => {
+    if (!lanInfo) return;
+    setLanBusy(true);
+    try {
+      const snap = await fetchLanSnapshot(lanInfo);
+      if (snap.trip) applyRemoteTrip(snap.trip as Trip);
+      setLanInfo({ ...lanInfo, version: snap.version });
+      setLanStatus(`已拉取 v${snap.version}`);
+    } catch (err) {
+      setLanStatus(`拉取失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLanBusy(false);
+    }
+  };
+
+  const joinRoom = async () => {
+    const ip = lanGuest.ip.trim();
+    const room = lanGuest.room.trim();
+    const port = Number(lanGuest.port) || 8766;
+    if (!ip || !room) { setLanStatus('请填写房主 IP 和房间码'); return; }
+    setLanBusy(true);
+    try {
+      const info = await probeLan({ ip, port });
+      if (info.room !== room) throw new Error('房间码不匹配');
+      const snap = await fetchLanSnapshot({ ip, port, room });
+      if (snap.trip) applyRemoteTrip(snap.trip as Trip);
+      setLanInfo({ ip, port, room, version: snap.version });
+      setLanRole('guest');
+      setLanStatus(`已加入房间 ${room} · v${snap.version}`);
+    } catch (err) {
+      setLanStatus(`加入失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLanBusy(false);
+    }
+  };
+
+  const pushGuest = async () => {
+    if (!lanInfo) return;
+    setLanBusy(true);
+    try {
+      const result = await pushLanSnapshot(lanInfo, trip);
+      setLanInfo({ ...lanInfo, version: result.version ?? lanInfo.version });
+      setLanStatus(`已推送本机行程 · v${result.version ?? ''}`);
+    } catch (err) {
+      setLanStatus(`推送失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLanBusy(false);
+    }
+  };
+
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
   const titleParts = pack.title.split('，');
@@ -944,16 +1047,56 @@ function App() {
           <section className="people-hero">
             <span className="eyebrow">TRAVEL TOGETHER</span>
             <h1>同行</h1>
-            <p>把行程发给朋友，一起看路线。协作编辑需要连接服务，当前先支持本地摘要与备份。</p>
+            <p>把行程发给朋友。同行设备在同一 Wi-Fi 下通过房间交换行程快照，不需要账号或公网。当前先支持手动发布/拉取。</p>
+          </section>
+
+          <section className="people-card lan-card">
+            <div className="people-title"><strong>局域网同步</strong><span>{lanSupported() ? '同一 Wi-Fi · 无云端' : '仅 Android App 可用'}</span></div>
+            {lanInfo && lanRole ? (
+              <>
+                <div className="lan-room">
+                  <div><span>地址</span><strong>{lanInfo.ip}:{lanInfo.port}</strong></div>
+                  <div><span>房间码</span><strong>{lanInfo.room}</strong></div>
+                  <div><span>版本</span><strong>v{lanInfo.version}</strong></div>
+                </div>
+                <div className="people-actions">
+                  {lanRole === 'host' ? (
+                    <>
+                      <button className="primary" disabled={lanBusy} onClick={publishHost}>发布当前行程</button>
+                      <button className="text-btn" disabled={lanBusy} onClick={pullHost}>拉取最新</button>
+                      <button className="text-btn danger" onClick={closeRoom}>关闭房间</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="primary" disabled={lanBusy} onClick={pullHost}>拉取最新</button>
+                      <button className="text-btn" disabled={lanBusy} onClick={pushGuest}>推送本机行程</button>
+                      <button className="text-btn" onClick={() => { setLanInfo(null); setLanRole(null); setLanStatus('已离开房间'); }}>离开</button>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="people-note">同一 Wi-Fi 下交换行程快照，不需要账号或公网。房主需要 Android App；同行设备可以是 Android 或浏览器。</p>
+                {lanSupported() && <button className="primary lan-host-btn" disabled={lanBusy} onClick={startRoom}>开启房间（房主）</button>}
+                <div className="lan-join">
+                  <span>{lanSupported() ? '或加入房间' : '输入房主地址加入'}</span>
+                  <input value={lanGuest.ip} onChange={(e) => setLanGuest((prev) => ({ ...prev, ip: e.target.value }))} placeholder="房主 IP，如 192.168.1.10" />
+                  <input value={lanGuest.room} onChange={(e) => setLanGuest((prev) => ({ ...prev, room: e.target.value }))} placeholder="6 位房间码" />
+                  <button className="text-btn" disabled={lanBusy} onClick={joinRoom}>加入并拉取</button>
+                </div>
+              </>
+            )}
+            {lanStatus && <p className="lan-status">{lanStatus}</p>}
           </section>
 
           <section className="people-card">
-            <div className="people-title"><strong>同行的人</strong><span>本地模式</span></div>
+            <div className="people-title"><strong>同行的人</strong><span>局域网房间</span></div>
             <div className="people-avatars">
               <span className="person-avatar self">你</span>
               <button className="person-invite" onClick={() => setNotice('协作邀请将在下一阶段接入')}>＋ 邀请</button>
             </div>
-            <p className="people-note">当前只有你在这台设备上编辑。实时同步、只读分享和冲突合并还没有接入。</p>
+            <p className="people-note">当前是手动快照同步：房主发布，同行拉取/推送。自动实时同步、权限和冲突合并还在 M3.1/M3.2。</p>
           </section>
 
           <section className="people-card">
@@ -975,7 +1118,7 @@ function App() {
           </section>
 
           <footer className="app-footer">
-            <span>本地存储 · 尚未连接协作服务</span>
+            <span>同一 Wi-Fi · 无账号 · 无云端</span>
             <span>{pack.city} · {pack.version}</span>
           </footer>
         </main>

@@ -65,7 +65,8 @@ export ANDROID_USER_HOME="$PWD/.toolchain/android-user"
 
 M2.1 已在 Android 35 arm64 模拟器 `sdk_gphone64_arm64` 验证：
 
-- 基座 APK 约 637 KB，首启进入“先下载一座城市”
+- 局域网 Host：MainActivity 内嵌 `LanSyncServer`，房主开启后在同一 Wi-Fi 监听 8766；同行页可创建/加入房间并手动发布/拉取 Trip 快照。
+- 基座 APK 约 653 KB，首启进入“先下载一座城市”
 - 通过 `10.0.2.2:8090` 下载重庆归档，缓存 484 个条目，地图/路线 6.9 km
 - 中文道路/POI 标注在飞行模式下正常
 - 重庆核心区精细层 z16 下载后，缓存约 1289 条（1288 个 z16 瓦片），主城全区底图保持；地图包内“查看精细层”飞到 z16，地图/路线正常

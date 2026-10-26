@@ -1,0 +1,65 @@
+export type LanInfo = {
+  ok?: boolean;
+  ip: string;
+  port: number;
+  room: string;
+  version: number;
+  error?: string;
+};
+
+type LanBridge = {
+  start(): string;
+  stop(): string;
+  info(): string;
+  publish(json: string): string;
+};
+
+declare global {
+  interface Window { YanluLan?: LanBridge }
+}
+
+export function lanSupported(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.YanluLan);
+}
+
+function bridge(): LanBridge {
+  if (!window.YanluLan) throw new Error('当前环境不是 Android 局域网壳');
+  return window.YanluLan;
+}
+
+export function startLanHost(): LanInfo {
+  return JSON.parse(bridge().start()) as LanInfo;
+}
+
+export function stopLanHost(): void {
+  bridge().stop();
+}
+
+export function publishLanSnapshot(info: LanInfo, trip: unknown): { ok: boolean; version?: number; error?: string } {
+  return JSON.parse(bridge().publish(JSON.stringify(trip)));
+}
+
+export async function fetchLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<{ ok: boolean; version: number; trip: unknown }> {
+  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}`;
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+}
+
+export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>, trip: unknown): Promise<{ ok: boolean; version?: number }> {
+  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(trip),
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+}
+
+export async function probeLan(info: Pick<LanInfo, 'ip' | 'port'>): Promise<LanInfo> {
+  const response = await fetch(`http://${info.ip}:${info.port}/info`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+}

@@ -20,7 +20,7 @@
 - 住宿完整化：入住/退房、晚数、地址、订单号、经纬度。
 - 每日最早出发/最晚结束约束。
 - 三页 UI：行程总览 / 当天与地图 / 同行分享。
-- Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 637 KB；POI 索引随城市包；地图包从 pack server 下载。真机需填 Mac 局域网 IP，不需要科学上网。
+- Android 壳：`android/build/yanlu-spike-debug.apk`，基座约 653 KB；POI 索引随城市包；地图包从 pack server 下载。真机需填 Mac 局域网 IP，不需要科学上网。
 - 详细：[App 说明](app/README.md)、[M2.1 验证记录](docs/m2/README.md)、[M2.2a 中文标注](docs/m2/labels/README.md)。
 
 ```bash
@@ -62,7 +62,7 @@ python3 -m http.server 8080
 - **中国国内地图**，首批城市 **重庆 / 武汉 / 贵阳**；在线优先 + 完全离线兜底，用户可按城市下载离线包。
 - **离线重算**步行 / 打车路线，不只缓存瓦片；路线、每日里程、交通时间都来自真实路网。
 - **离线包静态分发**：允许对象存储/CDN，只放地图数据；国内优先 OSS/COS。
-- **局域网协作**：Capacitor + 原生插件；一台手机作为 Host Session，通过 NSD/二维码发现加入，房主串行广播修改；不依赖公网服务器。房主保持 App 打开这一限制已接受。
+- **局域网协作**：M3.0 已实现原生 Host + 浏览器 Guest 的房间快照传输（0.0.0.0:8766）；同 Wi-Fi，无账号/云端。自动同步、成员权限、二维码发现仍在 M3.1/M3.2。房主保持 App 打开这一限制已接受。
 - **Android 优先，后续 iOS**；UI、协议、离线包格式要为 iOS 复用留出空间。
 - 第一版不做公交/地铁、账号、云端、照片同步。
 

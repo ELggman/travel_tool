@@ -2,7 +2,6 @@ package com.yanlu.travel;
 
 import android.app.Activity;
 import android.graphics.Color;
-import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,6 +11,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
@@ -23,6 +23,7 @@ public class MainActivity extends Activity {
             "http://127.0.0.1:" + PORT + "/index.html";
 
     private LocalServer server;
+    private LanSyncServer lanServer;
     private WebView webView;
 
     @Override
@@ -53,6 +54,7 @@ public class MainActivity extends Activity {
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webView.addJavascriptInterface(new LanBridge(), "YanluLan");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -78,6 +80,35 @@ public class MainActivity extends Activity {
         webView.loadUrl(START_URL);
     }
 
+    public class LanBridge {
+        @JavascriptInterface
+        public String start() {
+            try {
+                if (lanServer == null) lanServer = new LanSyncServer(8766);
+                return lanServer.start();
+            } catch (Exception e) {
+                Log.e(TAG, "lan start failed", e);
+                return "{\"ok\":false,\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}";
+            }
+        }
+
+        @JavascriptInterface
+        public String stop() {
+            if (lanServer != null) lanServer.stop();
+            return "{\"ok\":true}";
+        }
+
+        @JavascriptInterface
+        public String info() {
+            return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.getInfo();
+        }
+
+        @JavascriptInterface
+        public String publish(String tripJson) {
+            return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.publish(tripJson);
+        }
+    }
+
     @Override
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
@@ -90,6 +121,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (server != null) server.stop();
+        if (lanServer != null) lanServer.stop();
         if (webView != null) {
             webView.destroy();
             webView = null;
