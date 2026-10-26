@@ -128,6 +128,8 @@ function App() {
   const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null);
   const [lodgingOpen, setLodgingOpen] = useState(false);
+  const [page, setPage] = useState<'overview' | 'day' | 'people'>('overview');
+  const [notice, setNotice] = useState<string | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
@@ -148,6 +150,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [page]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -334,6 +346,7 @@ function App() {
     });
     setActiveStopId(null);
     setStopOpenId(null);
+    setPage('day');
   };
 
   const copyPreviousDay = () => {
@@ -543,6 +556,40 @@ function App() {
     setPreviewCity(null);
   };
 
+  const openDay = (dayId: string) => {
+    switchDay(dayId);
+    setPage('day');
+  };
+
+  const copySummary = async () => {
+    const lines = [
+      `沿路 · ${pack.city}`,
+      `${trip.startDate} 起 · ${trip.days.length} 天`,
+      ...trip.days.map((day, i) => `${day.label} ${day.date} ${day.title || `第 ${i + 1} 天`}：${day.stops.map((stop) => stop.name).join(' → ') || '未安排'}`),
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setNotice('行程摘要已复制');
+    } catch {
+      setNotice('当前环境不支持复制，请稍后再试');
+    }
+  };
+
+  const exportTrip = () => {
+    try {
+      const blob = new Blob([JSON.stringify({ trip, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `yanlu-${pack.city}-${trip.startDate}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice('行程备份已导出');
+    } catch {
+      setNotice('当前环境不支持导出');
+    }
+  };
+
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
   const titleParts = pack.title.split('，');
@@ -599,173 +646,303 @@ function App() {
     );
   }
 
-  return (
-    <div className="app" style={themeVars(pageTheme)} data-city={activeCity}>
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-              <path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10" />
-              <circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none" />
-              <circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none" />
-            </svg>
-          </span>
-          <span><b>沿路</b><small>YANLU</small></span>
-        </div>
-        <button className="city-pill" onClick={() => { setPackOpen(true); setPreviewCity(dayCity); }}>
-          <span className="city-seal">{pack.short}</span>
-          <span className="city-pill-text"><strong>{province.name === pack.city ? pack.city : `${province.name} · ${pack.city}`}</strong><small>{state.downloaded.includes(activeCity) ? '离线包已就绪' : '下载地图包'}</small></span>
-          <span className="chev">⌄</span>
+  const header = (
+    <header className="topbar">
+      <div className="brand">
+        <span className="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+            <path d="M5 17c0-4.6 6.4-3.4 6.4-8S18 5.8 19 10" />
+            <circle cx="5" cy="17" r="1.7" fill="currentColor" stroke="none" />
+            <circle cx="19" cy="10" r="1.7" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+        <span><b>沿路</b><small>YANLU</small></span>
+      </div>
+      <button className="city-pill" onClick={() => { setPackOpen(true); setPreviewCity(dayCity); }}>
+        <span className="city-seal">{pack.short}</span>
+        <span className="city-pill-text"><strong>{province.name === pack.city ? pack.city : `${province.name} · ${pack.city}`}</strong><small>{state.downloaded.includes(dayCity) ? '离线包已就绪' : '下载地图包'}</small></span>
+        <span className="chev">⌄</span>
+      </button>
+    </header>
+  );
+
+  const startRow = (withCopy: boolean) => (
+    <div className="trip-start-row">
+      <label className="trip-start">行程出发日期<input type="date" value={trip.startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+      <span>{trip.days.length} 天 · 每天独立路线</span>
+      <label className="day-city-select">城市<select value={dayCity} onChange={(e) => updateDayCity(e.target.value as AvailableCityId)}>
+        {state.downloaded.map((city) => <option key={city} value={city}>{packs[city].city}</option>)}
+      </select></label>
+      {withCopy && activeDayIndex > 0 && <button className="text-btn day-copy" onClick={copyPreviousDay}>复制前一天</button>}
+    </div>
+  );
+
+  const tripOverview = (
+    <section className="trip-overview" aria-label="多日总览">
+      <div><strong>{trip.days.length}</strong><span>天</span></div>
+      <div><strong>{totalStops}</strong><span>个地点</span></div>
+      <div><strong>{totalStayMinutes ? formatDuration(totalStayMinutes) : '—'}</strong><span>总停留</span></div>
+      <div><strong>{totalMeters ? formatKm(totalMeters) : '—'}</strong><span>当天路线</span></div>
+    </section>
+  );
+
+  const dayTabs = (
+    <section className="day-tabs" aria-label="行程日期">
+      {trip.days.map((day, index) => (
+        <button
+          key={day.id}
+          className={`day-tab${day.id === activeDay.id ? ' active' : ''}`}
+          onClick={() => switchDay(day.id)}
+        >
+          <strong>{day.label}</strong>
+          <small>{dateLabel(day.date)}</small>
+          <span>{day.stops.length} 站</span>
+          {index === trip.days.length - 1 && trip.days.length > 1 && (
+            <i
+              className="day-tab-delete"
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); requestDeleteDay(day.id); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); requestDeleteDay(day.id); } }}
+              aria-label={`删除 ${day.label}`}
+            >×</i>
+          )}
         </button>
-      </header>
+      ))}
+      <button className="day-tab day-tab-add" onClick={addDay}>
+        <strong>＋</strong>
+        <small>加一天</small>
+      </button>
+    </section>
+  );
 
-      <main>
-        <section className="hero">
-          <div className="hero-orbit" aria-hidden="true" />
-          <div className="hero-content">
-            <div className="hero-kicker"><span>{province.name} · {pack.version}</span><span>{activeDay.label} · {dateLabel(activeDay.date)}</span></div>
-            <h1>{titleParts[0]}{titleParts[1] && <><br /><em>{titleParts[1]}</em></>}</h1>
-            <p>{pack.tagline}</p>
-            <div className="hero-stats">
-              <div><strong>{stops.length}</strong><span>个地点</span></div>
-              <div><strong>{totalMeters ? formatKm(totalMeters) : '—'}</strong><span>今日路线</span></div>
-              <div><strong>{totalMinutes ? formatDuration(totalMinutes) : '—'}</strong><span>含停留</span></div>
-            </div>
-          </div>
-          <span className="hero-seal" aria-hidden="true">{pack.short}</span>
-        </section>
-
-        <section className="map-card">
-          <MapView
-            city={dayCity}
-            fine={state.fineDownloaded.includes(dayCity)}
-            focusFine={focusFine}
-            theme={baseTheme}
-            stops={stops}
-            legs={legs}
-            activeStopId={activeStopId}
-            onSelectStop={(id) => { setActiveStopId(id); setStopOpenId(id); }}
-            onMapPick={setMapPick}
+  const daySection = (
+    <section className="day-section">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">YOUR DAY · {activeDay.label}</span>
+          <input
+            className="day-title-input"
+            value={activeDay.title ?? `第 ${activeDayIndex + 1} 天`}
+            onChange={(e) => updateDayTitle(e.target.value)}
+            aria-label="当天标题"
           />
-          <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
-        </section>
-
-        <div className="trip-start-row">
-          <label className="trip-start">行程出发日期<input type="date" value={trip.startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
-          <span>{trip.days.length} 天 · 每天独立路线</span>
-          <label className="day-city-select">城市<select value={dayCity} onChange={(e) => updateDayCity(e.target.value as AvailableCityId)}>
-            {state.downloaded.map((city) => <option key={city} value={city}>{packs[city].city}</option>)}
-          </select></label>
-          {activeDayIndex > 0 && <button className="text-btn day-copy" onClick={copyPreviousDay}>复制前一天</button>}
         </div>
+        <label className="time-picker">出发<input type="time" value={activeDay.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+      </div>
 
-        <section className="trip-overview" aria-label="多日总览">
-          <div><strong>{trip.days.length}</strong><span>天</span></div>
-          <div><strong>{totalStops}</strong><span>个地点</span></div>
-          <div><strong>{totalStayMinutes ? formatDuration(totalStayMinutes) : '—'}</strong><span>总停留</span></div>
-          <div><strong>{totalMeters ? formatKm(totalMeters) : '—'}</strong><span>当天路线</span></div>
-        </section>
+      <button className="lodging-card" onClick={() => setLodgingOpen(true)}>
+        {activeDay.lodging ? (
+          <>
+            <strong>住宿 · {activeDay.lodging.name}</strong>
+            <span>入住 {activeDay.lodging.checkIn} · 退房 {activeDay.lodging.checkOut}</span>
+            {activeDay.lodging.note && <span>{activeDay.lodging.note}</span>}
+            <small>点击修改</small>
+          </>
+        ) : (
+          <>
+            <strong>＋ 添加住宿</strong>
+            <span>记录酒店、入住/退房时间，不参与步行算路</span>
+          </>
+        )}
+      </button>
 
-        <section className="day-tabs" aria-label="行程日期">
-          {trip.days.map((day, index) => (
-            <button
-              key={day.id}
-              className={`day-tab${day.id === activeDay.id ? ' active' : ''}`}
-              onClick={() => switchDay(day.id)}
-            >
-              <strong>{day.label}</strong>
-              <small>{dateLabel(day.date)}</small>
-              <span>{day.stops.length} 站</span>
-              {index === trip.days.length - 1 && trip.days.length > 1 && (
-                <i
-                  className="day-tab-delete"
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); requestDeleteDay(day.id); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); requestDeleteDay(day.id); } }}
-                  aria-label={`删除 ${day.label}`}
-                >×</i>
-              )}
-            </button>
-          ))}
-          <button className="day-tab day-tab-add" onClick={addDay}>
-            <strong>＋</strong>
-            <small>加一天</small>
-          </button>
-        </section>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          <div className="timeline">
+            {timeline.map(({ stop, arrive, leave, leg }, index) => (
+              <div className="timeline-item" key={stop.id}>
+                <StopRow
+                  stop={stop}
+                  index={index}
+                  arrive={arrive}
+                  leave={leave}
+                  leg={leg}
+                  active={activeStopId === stop.id}
+                  onOpen={() => { setActiveStopId(stop.id); setStopOpenId(stop.id); }}
+                  onToggleTransport={() => updateStop(stop.id, { transportToNext: stop.transportToNext === 'walk' ? 'taxi' : 'walk' })}
+                />
+                {index < timeline.length - 1 && (
+                  <div className="leg-row">
+                    <span className="leg-line" />
+                    <button className={`leg-pill ${leg?.mode ?? stop.transportToNext}`} onClick={() => updateStop(stop.id, { transportToNext: stop.transportToNext === 'walk' ? 'taxi' : 'walk' })}>
+                      <span>{leg?.mode === 'taxi' ? '打车' : '步行'}</span>
+                      <span>{leg ? `${formatKm(leg.distanceM)} · ${Math.round(leg.durationMin)} 分钟` : '计算中…'}</span>
+                      <span className="swap">⇄</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
-        <section className="day-section">
-          <div className="section-head">
-            <div>
-              <span className="eyebrow">YOUR DAY · {activeDay.label}</span>
-              <input
-                className="day-title-input"
-                value={activeDay.title ?? `第 ${activeDayIndex + 1} 天`}
-                onChange={(e) => updateDayTitle(e.target.value)}
-                aria-label="当天标题"
-              />
+      {!stops.length && <div className="empty-state">这一天还没有地点。加一个开始吧。</div>}
+
+      <button className="add-stop" onClick={() => setAddOpen(true)}><span>＋</span> 添加地点</button>
+      <p className="day-note">拖动地点右侧的手柄调整顺序；路线和时间会自动重算，并保存在本机。</p>
+    </section>
+  );
+
+  return (
+    <div className={`app page-${page}`} style={themeVars(pageTheme)} data-city={dayCity} data-page={page}>
+      {header}
+
+      {page === 'overview' && (
+        <main className="overview-page">
+          <section className="hero overview-hero">
+            <div className="hero-orbit" aria-hidden="true" />
+            <div className="hero-content">
+              <div className="hero-kicker"><span>{province.name} · {pack.version}</span><span>{dateLabel(trip.startDate)} — {dateLabel(trip.days[trip.days.length - 1].date)}</span></div>
+              <h1>{titleParts[0]}{titleParts[1] && <><br /><em>{titleParts[1]}</em></>}</h1>
+              <p>{pack.tagline}</p>
+              <div className="hero-stats">
+                <div><strong>{trip.days.length}</strong><span>天</span></div>
+                <div><strong>{totalStops}</strong><span>个地点</span></div>
+                <div><strong>{totalStayMinutes ? formatDuration(totalStayMinutes) : '—'}</strong><span>总停留</span></div>
+              </div>
             </div>
-            <label className="time-picker">出发<input type="time" value={activeDay.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+            <span className="hero-seal" aria-hidden="true">{pack.short}</span>
+          </section>
+
+          {startRow(false)}
+          {tripOverview}
+
+          <section className="overview-days">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">YOUR ITINERARY</span>
+                <h2>按天安排</h2>
+              </div>
+              <span className="overview-count">{trip.days.length} 天 · {totalStops} 个地点</span>
+            </div>
+            <div className="overview-day-list">
+              {trip.days.map((day, index) => {
+                const city = packs[day.cityId ?? activeCity].city;
+                const stay = day.stops.reduce((sum, stop) => sum + stop.durationMin, 0);
+                return (
+                  <button
+                    key={day.id}
+                    className={`overview-day-card${day.id === activeDay.id ? ' current' : ''}`}
+                    onClick={() => openDay(day.id)}
+                  >
+                    <div className="overview-day-date">
+                      <strong>{day.label}</strong>
+                      <span>{dateLabel(day.date)}</span>
+                    </div>
+                    <div className="overview-day-main">
+                      <h3>{day.title || `第 ${index + 1} 天`}</h3>
+                      <p>{day.stops.length} 个地点 · {stay ? formatDuration(stay) : '未安排'} · {city}</p>
+                      {day.stops.length > 0 && <small>{day.stops.map((stop) => stop.name).slice(0, 3).join(' · ')}{day.stops.length > 3 ? ' …' : ''}</small>}
+                      {day.lodging && <small>住宿 · {day.lodging.name}</small>}
+                    </div>
+                    <span className="overview-day-arrow">↗</span>
+                  </button>
+                );
+              })}
+              <button className="overview-day-add" onClick={addDay}>＋ 再加一天</button>
+            </div>
+          </section>
+
+          <footer className="app-footer">
+            <span>本地地图 · 本地路网 · 无外部请求</span>
+            <span>{pack.city} · {pack.version}</span>
+          </footer>
+        </main>
+      )}
+
+      {page === 'day' && (
+        <main className="day-page">
+          <div className="day-page-head">
+            <button className="page-back" onClick={() => setPage('overview')}>← 行程总览</button>
+            <span>{activeDay.label} · {dateLabel(activeDay.date)}</span>
           </div>
 
-          <button className="lodging-card" onClick={() => setLodgingOpen(true)}>
-            {activeDay.lodging ? (
-              <>
-                <strong>住宿 · {activeDay.lodging.name}</strong>
-                <span>入住 {activeDay.lodging.checkIn} · 退房 {activeDay.lodging.checkOut}</span>
-                {activeDay.lodging.note && <span>{activeDay.lodging.note}</span>}
-                <small>点击修改</small>
-              </>
-            ) : (
-              <>
-                <strong>＋ 添加住宿</strong>
-                <span>记录酒店、入住/退房时间，不参与步行算路</span>
-              </>
-            )}
-          </button>
+          <section className="map-card day-map-card">
+            <MapView
+              city={dayCity}
+              fine={state.fineDownloaded.includes(dayCity)}
+              focusFine={focusFine}
+              theme={baseTheme}
+              stops={stops}
+              legs={legs}
+              activeStopId={activeStopId}
+              onSelectStop={(id) => { setActiveStopId(id); setStopOpenId(id); }}
+              onMapPick={setMapPick}
+            />
+            <div className="map-badge">{loading ? '正在重算路线…' : totalMeters ? `${formatKm(totalMeters)} · ${legs.length} 段` : '还没有路线'}</div>
+          </section>
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="timeline">
-                {timeline.map(({ stop, arrive, leave, leg }, index) => (
-                  <div className="timeline-item" key={stop.id}>
-                    <StopRow
-                      stop={stop}
-                      index={index}
-                      arrive={arrive}
-                      leave={leave}
-                      leg={leg}
-                      active={activeStopId === stop.id}
-                      onOpen={() => { setActiveStopId(stop.id); setStopOpenId(stop.id); }}
-                      onToggleTransport={() => updateStop(stop.id, { transportToNext: stop.transportToNext === 'walk' ? 'taxi' : 'walk' })}
-                    />
-                    {index < timeline.length - 1 && (
-                      <div className="leg-row">
-                        <span className="leg-line" />
-                        <button className={`leg-pill ${leg?.mode ?? stop.transportToNext}`} onClick={() => updateStop(stop.id, { transportToNext: stop.transportToNext === 'walk' ? 'taxi' : 'walk' })}>
-                          <span>{leg?.mode === 'taxi' ? '打车' : '步行'}</span>
-                          <span>{leg ? `${formatKm(leg.distanceM)} · ${Math.round(leg.durationMin)} 分钟` : '计算中…'}</span>
-                          <span className="swap">⇄</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          {startRow(true)}
+          {dayTabs}
+          {daySection}
 
-          {!stops.length && <div className="empty-state">这一天还没有地点。加一个开始吧。</div>}
+          <footer className="app-footer">
+            <span>本地地图 · 本地路网 · 无外部请求</span>
+            <span>{pack.city} · {pack.version}</span>
+          </footer>
+        </main>
+      )}
 
-          <button className="add-stop" onClick={() => setAddOpen(true)}><span>＋</span> 添加地点</button>
-          <p className="day-note">拖动地点右侧的手柄调整顺序；路线和时间会自动重算，并保存在本机。</p>
-        </section>
+      {page === 'people' && (
+        <main className="people-page">
+          <section className="people-hero">
+            <span className="eyebrow">TRAVEL TOGETHER</span>
+            <h1>同行</h1>
+            <p>把行程发给朋友，一起看路线。协作编辑需要连接服务，当前先支持本地摘要与备份。</p>
+          </section>
 
-        <footer className="app-footer">
-          <span>本地地图 · 本地路网 · 无外部请求</span>
-          <span>{pack.city} · {pack.version}</span>
-        </footer>
-      </main>
+          <section className="people-card">
+            <div className="people-title"><strong>同行的人</strong><span>本地模式</span></div>
+            <div className="people-avatars">
+              <span className="person-avatar self">你</span>
+              <button className="person-invite" onClick={() => setNotice('协作邀请将在下一阶段接入')}>＋ 邀请</button>
+            </div>
+            <p className="people-note">当前只有你在这台设备上编辑。实时同步、只读分享和冲突合并还没有接入。</p>
+          </section>
+
+          <section className="people-card">
+            <div className="people-title"><strong>分享当前行程</strong><span>{trip.days.length} 天 · {totalStops} 地点</span></div>
+            <div className="people-actions">
+              <button className="primary" onClick={copySummary}>复制行程摘要</button>
+              <button className="text-btn" onClick={exportTrip}>导出 JSON 备份</button>
+            </div>
+            <p className="people-note">摘要包含每天的城市、日期和地点顺序；备份可用于后续导入。</p>
+          </section>
+
+          <section className="people-card">
+            <div className="people-title"><strong>当前行程</strong><span>{pack.city}</span></div>
+            <div className="people-trip-meta">
+              <span>{trip.startDate} — {trip.days[trip.days.length - 1].date}</span>
+              <span>{trip.days.length} 天 · {totalStops} 个地点</span>
+            </div>
+            <button className="text-btn" onClick={() => { setPage('overview'); setNotice('回到行程总览'); }}>打开行程总览 →</button>
+          </section>
+
+          <footer className="app-footer">
+            <span>本地存储 · 尚未连接协作服务</span>
+            <span>{pack.city} · {pack.version}</span>
+          </footer>
+        </main>
+      )}
+
+      <nav className="app-tabbar" aria-label="主导航">
+        <button className={page === 'overview' ? 'active' : ''} onClick={() => setPage('overview')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+          <span>行程</span>
+        </button>
+        <button className={page === 'day' ? 'active' : ''} onClick={() => setPage('day')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" /><circle cx="12" cy="10" r="2.2" /></svg>
+          <span>当天</span>
+        </button>
+        <button className={page === 'people' ? 'active' : ''} onClick={() => setPage('people')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.2" /><path d="M3.5 19c.6-3 2.6-4.7 5.5-4.7S14 16 14.6 19M15 14.5c2.4.2 4.1 1.7 4.6 4.5" /></svg>
+          <span>同行</span>
+        </button>
+      </nav>
+
+      {notice && <div className="app-notice">{notice}</div>}
 
       {packSheet}
       {addOpen && <AddPlaceSheet city={dayCity} existing={stops.map((s) => s.placeId)} onAdd={addPlace} onClose={() => setAddOpen(false)} />}
