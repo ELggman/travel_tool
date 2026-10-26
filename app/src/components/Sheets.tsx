@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { cityPlaces, formatBytes, packs, provinces } from '../data/packs';
-import type { AvailableCityId, CityId, Place, Stop, Transport } from '../data/types';
+import type { AvailableCityId, CityId, Day, Lodging, Place, Stop, Transport } from '../data/types';
 import { loadPoiIndex, type PoiEntry } from '../lib/poiIndex';
 
 type SheetProps = { onClose: () => void; children: ReactNode; wide?: boolean; className?: string };
@@ -424,12 +424,17 @@ type StopSheetProps = {
   stop: Stop;
   index: number;
   isLast: boolean;
+  days: { id: string; label: string; title?: string }[];
+  currentDayId: string;
   onClose: () => void;
   onChange: (patch: Partial<Stop>) => void;
   onDelete: () => void;
+  onCopyToDay: (dayId: string) => void;
 };
 
-export function StopSheet({ stop, index, isLast, onClose, onChange, onDelete }: StopSheetProps) {
+export function StopSheet({
+  stop, index, isLast, days, currentDayId, onClose, onChange, onDelete, onCopyToDay,
+}: StopSheetProps) {
   return (
     <Sheet onClose={onClose}>
       <header className="sheet-head">
@@ -450,6 +455,27 @@ export function StopSheet({ stop, index, isLast, onClose, onChange, onDelete }: 
         </div>
       </div>
 
+      <div className="field-group">
+        <label>类别</label>
+        <input
+          className="text-input"
+          value={stop.category}
+          onChange={(e) => onChange({ category: e.target.value })}
+          placeholder="景点 / 餐饮 / 交通 / 固定事件"
+        />
+      </div>
+
+      <div className="field-group">
+        <label>固定到达时间</label>
+        <input
+          className="text-input"
+          type="time"
+          value={stop.fixedTime ?? ''}
+          onChange={(e) => onChange({ fixedTime: e.target.value || undefined })}
+        />
+        <small className="field-help">留空表示按上一步自动顺延；填写后时间轴会等这个时间。</small>
+      </div>
+
       {!isLast && (
         <div className="field-group">
           <label>去下一站</label>
@@ -468,18 +494,91 @@ export function StopSheet({ stop, index, isLast, onClose, onChange, onDelete }: 
       )}
 
       <div className="field-group">
-        <label>预订 / 备注</label>
+        <label>预订信息</label>
         <input
           className="text-input"
           value={stop.booking}
           onChange={(e) => onChange({ booking: e.target.value })}
-          placeholder="例如：16:00 入场，已出票"
+          placeholder="例如：已出票 / 订单号"
         />
+      </div>
+
+      <div className="field-group">
+        <label>备注</label>
+        <textarea
+          className="text-input text-area"
+          value={stop.notes ?? ''}
+          onChange={(e) => onChange({ notes: e.target.value || undefined })}
+          placeholder="交通班次、入口、注意事项…"
+          rows={3}
+        />
+      </div>
+
+      <div className="copy-to-day">
+        <label>复制到另一天</label>
+        <div className="copy-day-list">
+          {days.filter((day) => day.id !== currentDayId).map((day) => (
+            <button key={day.id} className="copy-day-btn" onClick={() => onCopyToDay(day.id)}>
+              <strong>{day.label}</strong>
+              <small>{day.title || '未命名'}</small>
+            </button>
+          ))}
+          {days.length <= 1 && <span>先加一天，才能跨天复制。</span>}
+        </div>
       </div>
 
       <div className="sheet-actions">
         <button className="primary" onClick={onClose}>完成</button>
         <button className="text-btn danger" onClick={() => { onDelete(); onClose(); }}>删除这个地点</button>
+      </div>
+    </Sheet>
+  );
+}
+
+type LodgingSheetProps = {
+  day: Day;
+  onSave: (lodging: Lodging | undefined) => void;
+  onClose: () => void;
+};
+
+export function LodgingSheet({ day, onSave, onClose }: LodgingSheetProps) {
+  const [name, setName] = useState(day.lodging?.name ?? '');
+  const [checkIn, setCheckIn] = useState(day.lodging?.checkIn ?? '15:00');
+  const [checkOut, setCheckOut] = useState(day.lodging?.checkOut ?? '12:00');
+  const [note, setNote] = useState(day.lodging?.note ?? '');
+
+  return (
+    <Sheet onClose={onClose}>
+      <header className="sheet-head">
+        <div>
+          <span className="eyebrow">STAY</span>
+          <h2>住宿</h2>
+          <p>{day.label} · 入住与退房只做当天提醒，不参与步行算路。</p>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
+      </header>
+
+      <div className="field-group">
+        <label>酒店 / 民宿名称</label>
+        <input className="text-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：解放碑某酒店" />
+      </div>
+      <div className="lodging-times">
+        <div className="field-group"><label>入住</label><input className="text-input" type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div>
+        <div className="field-group"><label>退房</label><input className="text-input" type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
+      </div>
+      <div className="field-group">
+        <label>备注</label>
+        <textarea className="text-input text-area" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="房型、地址、订单号…" />
+      </div>
+
+      <div className="sheet-actions">
+        <button
+          className="primary"
+          disabled={!name.trim()}
+          onClick={() => onSave({ name: name.trim(), checkIn, checkOut, note: note.trim() || undefined })}
+        >保存住宿</button>
+        {day.lodging && <button className="text-btn danger" onClick={() => onSave(undefined)}>移除住宿</button>}
+        <button className="text-btn" onClick={onClose}>取消</button>
       </div>
     </Sheet>
   );

@@ -351,3 +351,26 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .trip-start-row > span { font-size: 7px; color: var(--muted); }
 .trip-start-row { flex-wrap: wrap; }
 .day-copy { margin-left: auto; font-size: 8px; }
+.copy-to-day { margin-top: 12px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.copy-to-day > label { display: block; font-size: 8px; color: var(--muted); letter-spacing: .06em; margin-bottom: 6px; }
+.copy-day-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.copy-day-list > span { font-size: 8px; color: var(--muted); }
+.copy-day-btn { border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--paper) 60%, transparent); border-radius: 9px; padding: 5px 8px; text-align: left; display: flex; flex-direction: column; gap: 1px; cursor: pointer; color: var(--ink); }
+.copy-day-btn strong { font-size: 8px; letter-spacing: .05em; }
+.copy-day-btn small { font-size: 7px; color: var(--muted); }
+.copy-day-btn:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.trip-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin: 10px 20px 0; padding: 9px 0; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+.trip-overview > div { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 1px solid color-mix(in srgb, var(--ink) 7%, transparent); }
+.trip-overview > div:first-child { border-left: 0; padding-left: 0; }
+.trip-overview strong { font-family: "Songti SC", "Iowan Old Style", serif; font-size: 16px; font-weight: 600; color: var(--ink); }
+.trip-overview span { font-size: 7px; color: var(--muted); }
+.day-title-input { width: 100%; max-width: 230px; border: 0; border-bottom: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent); background: transparent; color: var(--ink); font-family: "Songti SC", "Iowan Old Style", serif; font-size: 23px; font-weight: 600; letter-spacing: .01em; padding: 0 0 2px; }
+.day-title-input:focus { outline: none; border-bottom-color: var(--accent); }
+.field-help { display: block; margin-top: 4px; font-size: 7px; color: var(--muted); line-height: 1.45; }
+.text-area { resize: vertical; min-height: 52px; font-family: inherit; line-height: 1.5; }
+.lodging-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lodging-card { width: 100%; margin: 10px 0 0; padding: 10px 12px; border: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--paper) 58%, transparent); color: var(--ink); text-align: left; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+.lodging-card strong { font-size: 10px; font-weight: 600; }
+.lodging-card span { font-size: 8px; color: var(--muted); }
+.lodging-card small { font-size: 7px; color: var(--accent); letter-spacing: .04em; }
+.stop-note-text { margin: 6px 0 0 0; font-size: 8px; line-height: 1.5; color: var(--muted); }

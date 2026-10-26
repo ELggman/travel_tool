@@ -21,14 +21,25 @@ export type Stop = {
   durationMin: number;
   transportToNext: Transport;
   booking: string;
+  fixedTime?: string;
+  notes?: string;
+};
+
+export type Lodging = {
+  name: string;
+  checkIn: string;
+  checkOut: string;
+  note?: string;
 };
 
 export type Day = {
   id: string;
   date: string;
   label: string;
+  title?: string;
   startTime: string;
   stops: Stop[];
+  lodging?: Lodging;
 };
 
 export type Trip = {

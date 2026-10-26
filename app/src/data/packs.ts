@@ -98,6 +98,7 @@ export function seedTrip(city: AvailableCityId): Trip {
     id: `day-${city}-1`,
     date,
     label: 'DAY 01',
+    title: '第 1 天',
     startTime: '09:30',
     stops,
   };

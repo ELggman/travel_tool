@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import MapView from './components/MapView';
-import { AddPlaceSheet, ConfirmSheet, MapPickSheet, PackSheet, StopSheet } from './components/Sheets';
+import { AddPlaceSheet, ConfirmSheet, LodgingSheet, MapPickSheet, PackSheet, StopSheet } from './components/Sheets';
 import { useRouting } from './hooks/useRouting';
 import { deleteCachedPack, downloadPackArchive, listCachedPacks } from './lib/packCache';
 import { releaseTileUrls } from './lib/tileStore';
@@ -15,7 +15,7 @@ import { getPackBaseUrl, setPackBaseUrl } from './config';
 import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
-import type { AvailableCityId, CityId, Day, LegRoute, Place, Stop, Theme, Transport, Trip } from './data/types';
+import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -38,8 +38,10 @@ function normalizeDay(day: Day, index: number, city: AvailableCityId): Day {
     id: day.id || `day-${city}-${index + 1}`,
     date: day.date || new Date().toISOString().slice(0, 10),
     label: day.label || `DAY ${String(index + 1).padStart(2, '0')}`,
+    title: day.title || `第 ${index + 1} 天`,
     startTime: day.startTime || '09:30',
     stops: Array.isArray(day.stops) ? day.stops : [],
+    lodging: day.lodging,
   };
 }
 
@@ -124,6 +126,7 @@ function App() {
   const [fineProgress, setFineProgress] = useState<Partial<Record<CityId, number>>>({});
   const [deleteFineCity, setDeleteFineCity] = useState<AvailableCityId | null>(null);
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null);
+  const [lodgingOpen, setLodgingOpen] = useState(false);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
@@ -165,7 +168,8 @@ function App() {
   const timeline = useMemo(() => {
     let cursor = parseTime(activeDay.startTime);
     return stops.map((stop, i) => {
-      const arrive = cursor;
+      const fixed = stop.fixedTime ? parseTime(stop.fixedTime) : null;
+      const arrive = fixed ? Math.max(cursor, fixed) : cursor;
       const leave = arrive + stop.durationMin;
       const leg = legs[i];
       cursor = leave + (leg?.durationMin ?? 0);
@@ -177,6 +181,11 @@ function App() {
   const totalMinutes = timeline.length
     ? timeline[timeline.length - 1].leave - parseTime(activeDay.startTime)
     : 0;
+  const totalStops = trip.days.reduce((sum, day) => sum + day.stops.length, 0);
+  const totalStayMinutes = trip.days.reduce(
+    (sum, day) => sum + day.stops.reduce((daySum, stop) => daySum + stop.durationMin, 0),
+    0,
+  );
 
   const updateStops = (next: Stop[] | ((current: Stop[]) => Stop[])) => {
     setState((prev) => {
@@ -244,6 +253,39 @@ function App() {
     });
   };
 
+  const updateDayTitle = (title: string) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, title } : day)),
+          },
+        },
+      };
+    });
+  };
+
+  const updateLodging = (lodging: Lodging | undefined) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, lodging } : day)),
+          },
+        },
+      };
+    });
+    setLodgingOpen(false);
+  };
+
   const addDay = () => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
@@ -253,6 +295,7 @@ function App() {
         id: `day-${prev.activeCity}-${index}-${Date.now()}`,
         date: addDays(currentTrip.startDate, currentTrip.days.length),
         label: `DAY ${String(index).padStart(2, '0')}`,
+        title: `第 ${index} 天`,
         startTime: last.startTime,
         stops: [],
       };
@@ -297,6 +340,30 @@ function App() {
         },
       };
     });
+  };
+
+  const copyStopToDay = (stopId: string, targetDayId: string) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      const source = currentTrip.days.find((day) => day.id === currentTrip.activeDayId);
+      const target = currentTrip.days.find((day) => day.id === targetDayId);
+      const stop = source?.stops.find((item) => item.id === stopId);
+      if (!stop || !target || target.stops.some((item) => item.placeId === stop.placeId)) return prev;
+      const copy: Stop = { ...stop, id: `${stop.id}-copy-${Date.now()}` };
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === target.id
+              ? { ...day, stops: [...day.stops, copy] }
+              : day)),
+          },
+        },
+      };
+    });
+    setStopOpenId(null);
   };
 
   const requestDeleteDay = (dayId: string) => {
@@ -568,6 +635,13 @@ function App() {
           {activeDayIndex > 0 && <button className="text-btn day-copy" onClick={copyPreviousDay}>复制前一天</button>}
         </div>
 
+        <section className="trip-overview" aria-label="多日总览">
+          <div><strong>{trip.days.length}</strong><span>天</span></div>
+          <div><strong>{totalStops}</strong><span>个地点</span></div>
+          <div><strong>{totalStayMinutes ? formatDuration(totalStayMinutes) : '—'}</strong><span>总停留</span></div>
+          <div><strong>{totalMeters ? formatKm(totalMeters) : '—'}</strong><span>当天路线</span></div>
+        </section>
+
         <section className="day-tabs" aria-label="行程日期">
           {trip.days.map((day, index) => (
             <button
@@ -600,10 +674,31 @@ function App() {
           <div className="section-head">
             <div>
               <span className="eyebrow">YOUR DAY · {activeDay.label}</span>
-              <h2>第 {activeDayIndex + 1} 天路线</h2>
+              <input
+                className="day-title-input"
+                value={activeDay.title ?? `第 ${activeDayIndex + 1} 天`}
+                onChange={(e) => updateDayTitle(e.target.value)}
+                aria-label="当天标题"
+              />
             </div>
             <label className="time-picker">出发<input type="time" value={activeDay.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
           </div>
+
+          <button className="lodging-card" onClick={() => setLodgingOpen(true)}>
+            {activeDay.lodging ? (
+              <>
+                <strong>住宿 · {activeDay.lodging.name}</strong>
+                <span>入住 {activeDay.lodging.checkIn} · 退房 {activeDay.lodging.checkOut}</span>
+                {activeDay.lodging.note && <span>{activeDay.lodging.note}</span>}
+                <small>点击修改</small>
+              </>
+            ) : (
+              <>
+                <strong>＋ 添加住宿</strong>
+                <span>记录酒店、入住/退房时间，不参与步行算路</span>
+              </>
+            )}
+          </button>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
@@ -659,14 +754,20 @@ function App() {
           onClose={() => setMapPick(null)}
         />
       )}
+      {lodgingOpen && (
+        <LodgingSheet day={activeDay} onSave={updateLodging} onClose={() => setLodgingOpen(false)} />
+      )}
       {selectedStop && (
         <StopSheet
           stop={selectedStop}
           index={selectedIndex}
           isLast={selectedIndex === stops.length - 1}
+          days={trip.days.map((day) => ({ id: day.id, label: day.label, title: day.title }))}
+          currentDayId={activeDay.id}
           onClose={() => setStopOpenId(null)}
           onChange={(patch) => updateStop(selectedStop.id, patch)}
           onDelete={() => deleteStop(selectedStop.id)}
+          onCopyToDay={(dayId) => copyStopToDay(selectedStop.id, dayId)}
         />
       )}
       {deleteDayId && (
@@ -725,7 +826,7 @@ function StopRow({ stop, index, arrive, leave, leg, active, onOpen, onToggleTran
       <article className={`stop-card${active ? ' active' : ''}`} onClick={onOpen}>
         <div className="stop-card-head">
           <span className="stop-index">{String(index + 1).padStart(2, '0')}</span>
-          <div className="stop-title"><h3>{stop.name}</h3><p>{stop.category} · 停留 {stop.durationMin} 分钟</p></div>
+          <div className="stop-title"><h3>{stop.name}</h3><p>{stop.category} · 停留 {stop.durationMin} 分钟{stop.fixedTime ? ` · 固定 ${stop.fixedTime}` : ''}</p></div>
           <button
             className="drag-handle"
             aria-label="拖动排序"
@@ -734,6 +835,7 @@ function StopRow({ stop, index, arrive, leave, leg, active, onOpen, onToggleTran
             {...listeners}
           ><span /><span /><span /><span /><span /><span /></button>
         </div>
+        {stop.notes && <p className="stop-note-text">{stop.notes}</p>}
         <div className="stop-card-foot">
           <span className="stop-meta">{stop.booking ? `预订 · ${stop.booking}` : '未填预订'}</span>
           <button className="mini-transport" onClick={(e) => { e.stopPropagation(); onToggleTransport(); }}>
