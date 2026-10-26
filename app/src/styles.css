@@ -443,3 +443,14 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .overview-page, .people-page, .day-page:not(.is-hidden) { animation: pageIn .28s cubic-bezier(.2,.7,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .overview-page, .people-page, .day-page:not(.is-hidden) { animation: none; } }
+.transport-editor { margin: 10px 0 4px; padding: 10px; border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--paper) 60%, transparent); }
+.transport-editor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.transport-editor-head label { font-size: 8px; color: var(--muted); letter-spacing: .04em; }
+.transport-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.transport-field { display: flex; flex-direction: column; gap: 3px; font-size: 7px; color: var(--muted); }
+.transport-field select { border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 6px; background: var(--paper); color: var(--ink); font-size: 10px; padding: 5px; }
+.transport-add { width: 100%; border: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent); border-radius: 9px; background: transparent; color: var(--accent); font-size: 8px; padding: 8px; cursor: pointer; }
+.day-window { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: -6px 0 10px; font-size: 7px; color: var(--muted); }
+.day-window label { display: flex; align-items: center; gap: 4px; }
+.day-window input { border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--paper) 60%, transparent); color: var(--ink); font-size: 9px; padding: 3px 4px; }
+.time-warning { color: var(--accent); font-size: 7px; margin-left: auto; }

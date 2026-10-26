@@ -2,6 +2,18 @@ export type CityId = 'chongqing' | 'wuhan' | 'guiyang' | 'harbin';
 export type AvailableCityId = Exclude<CityId, 'harbin'>;
 export type Transport = 'walk' | 'taxi';
 
+export type TransportKind = 'flight' | 'train' | 'bus' | 'ferry' | 'other';
+
+export type TransportInfo = {
+  kind: TransportKind;
+  number: string;
+  from: string;
+  to: string;
+  departTime: string;
+  arriveTime: string;
+  preArriveMin: number;
+};
+
 export type Place = {
   id: string;
   name: string;
@@ -23,12 +35,18 @@ export type Stop = {
   booking: string;
   fixedTime?: string;
   notes?: string;
+  transportInfo?: TransportInfo;
 };
 
 export type Lodging = {
   name: string;
   checkIn: string;
   checkOut: string;
+  nights?: number;
+  address?: string;
+  booking?: string;
+  lon?: number;
+  lat?: number;
   note?: string;
 };
 
@@ -39,6 +57,8 @@ export type Day = {
   title?: string;
   cityId?: AvailableCityId;
   startTime: string;
+  earliestStart?: string;
+  latestEnd?: string;
   stops: Stop[];
   lodging?: Lodging;
 };

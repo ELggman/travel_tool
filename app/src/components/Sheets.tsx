@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { cityPlaces, formatBytes, packs, provinces } from '../data/packs';
-import type { AvailableCityId, CityId, Day, Lodging, Place, Stop, Transport } from '../data/types';
+import type { AvailableCityId, CityId, Day, Lodging, Place, Stop, Transport, TransportInfo, TransportKind } from '../data/types';
 import { loadPoiIndex, type PoiEntry } from '../lib/poiIndex';
 
 type SheetProps = { onClose: () => void; children: ReactNode; wide?: boolean; className?: string };
@@ -466,6 +466,54 @@ export function StopSheet({
         />
       </div>
 
+      <div className="transport-editor">
+        {stop.transportInfo ? (
+          <>
+            <div className="transport-editor-head">
+              <label>交通班次</label>
+              <button className="text-btn danger" onClick={() => onChange({ transportInfo: undefined })}>移除</button>
+            </div>
+            <div className="transport-grid">
+              <label className="transport-field">类型
+                <select value={stop.transportInfo.kind} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, kind: e.target.value as TransportKind } })}>
+                  <option value="flight">航班</option>
+                  <option value="train">高铁 / 火车</option>
+                  <option value="bus">大巴</option>
+                  <option value="ferry">轮渡</option>
+                  <option value="other">其他</option>
+                </select>
+              </label>
+              <label className="transport-field">班次
+                <input className="text-input" value={stop.transportInfo.number} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, number: e.target.value } })} placeholder="G1234" />
+              </label>
+              <label className="transport-field">出发站
+                <input className="text-input" value={stop.transportInfo.from} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, from: e.target.value } })} placeholder="重庆北" />
+              </label>
+              <label className="transport-field">到达站
+                <input className="text-input" value={stop.transportInfo.to} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, to: e.target.value } })} placeholder="武汉" />
+              </label>
+              <label className="transport-field">发车
+                <input className="text-input" type="time" value={stop.transportInfo.departTime} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, departTime: e.target.value } })} />
+              </label>
+              <label className="transport-field">到达
+                <input className="text-input" type="time" value={stop.transportInfo.arriveTime} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, arriveTime: e.target.value } })} />
+              </label>
+              <label className="transport-field">提前到站
+                <input className="text-input" type="number" min={0} step={5} value={stop.transportInfo.preArriveMin} onChange={(e) => onChange({ transportInfo: { ...stop.transportInfo!, preArriveMin: Math.max(0, Number(e.target.value) || 0) } })} />
+              </label>
+            </div>
+          </>
+        ) : (
+          <button
+            className="transport-add"
+            onClick={() => onChange({
+              category: stop.category === '地点' ? '交通' : stop.category,
+              transportInfo: { kind: 'train', number: '', from: '', to: '', departTime: '', arriveTime: '', preArriveMin: 30 } as TransportInfo,
+            })}
+          >＋ 设为交通班次</button>
+        )}
+      </div>
+
       <div className="field-group">
         <label>固定到达时间</label>
         <input
@@ -546,6 +594,11 @@ export function LodgingSheet({ day, onSave, onClose }: LodgingSheetProps) {
   const [name, setName] = useState(day.lodging?.name ?? '');
   const [checkIn, setCheckIn] = useState(day.lodging?.checkIn ?? '15:00');
   const [checkOut, setCheckOut] = useState(day.lodging?.checkOut ?? '12:00');
+  const [nights, setNights] = useState(String(day.lodging?.nights ?? 1));
+  const [address, setAddress] = useState(day.lodging?.address ?? '');
+  const [booking, setBooking] = useState(day.lodging?.booking ?? '');
+  const [lon, setLon] = useState(day.lodging?.lon !== undefined ? String(day.lodging.lon) : '');
+  const [lat, setLat] = useState(day.lodging?.lat !== undefined ? String(day.lodging.lat) : '');
   const [note, setNote] = useState(day.lodging?.note ?? '');
 
   return (
@@ -568,15 +621,27 @@ export function LodgingSheet({ day, onSave, onClose }: LodgingSheetProps) {
         <div className="field-group"><label>退房</label><input className="text-input" type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
       </div>
       <div className="field-group">
+        <label>地址</label>
+        <input className="text-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="街道、门牌、楼层" />
+      </div>
+      <div className="lodging-times">
+        <div className="field-group"><label>晚数</label><input className="text-input" type="number" min={1} value={nights} onChange={(e) => setNights(e.target.value)} /></div>
+        <div className="field-group"><label>订单号</label><input className="text-input" value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="可选" /></div>
+      </div>
+      <div className="lodging-times">
+        <div className="field-group"><label>经度</label><input className="text-input" value={lon} onChange={(e) => setLon(e.target.value)} placeholder="可选" /></div>
+        <div className="field-group"><label>纬度</label><input className="text-input" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="可选" /></div>
+      </div>
+      <div className="field-group">
         <label>备注</label>
-        <textarea className="text-input text-area" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="房型、地址、订单号…" />
+        <textarea className="text-input text-area" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="房型、入住方式…" />
       </div>
 
       <div className="sheet-actions">
         <button
           className="primary"
-          disabled={!name.trim()}
-          onClick={() => onSave({ name: name.trim(), checkIn, checkOut, note: note.trim() || undefined })}
+          disabled={!name.trim() || !checkIn || !checkOut}
+          onClick={() => onSave({ name: name.trim(), checkIn, checkOut, note: note.trim() || undefined, nights: Math.max(1, Number(nights) || 1), address: address.trim() || undefined, booking: booking.trim() || undefined, lon: lon.trim() ? Number(lon) : undefined, lat: lat.trim() ? Number(lat) : undefined })}
         >保存住宿</button>
         {day.lodging && <button className="text-btn danger" onClick={() => onSave(undefined)}>移除住宿</button>}
         <button className="text-btn" onClick={onClose}>取消</button>

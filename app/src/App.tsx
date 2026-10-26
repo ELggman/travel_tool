@@ -41,6 +41,8 @@ function normalizeDay(day: Day, index: number, city: AvailableCityId): Day {
     title: day.title || `第 ${index + 1} 天`,
     cityId: day.cityId && availableCities.includes(day.cityId) ? day.cityId : city,
     startTime: day.startTime || '09:30',
+    earliestStart: day.earliestStart,
+    latestEnd: day.latestEnd,
     stops: Array.isArray(day.stops) ? day.stops : [],
     lodging: day.lodging,
   };
@@ -192,11 +194,19 @@ function App() {
   }, []);
 
   const timeline = useMemo(() => {
-    let cursor = parseTime(activeDay.startTime);
+    let cursor = parseTime(activeDay.earliestStart || activeDay.startTime);
     return stops.map((stop, i) => {
+      const t = stop.transportInfo;
+      const depart = t?.departTime ? parseTime(t.departTime) : null;
       const fixed = stop.fixedTime ? parseTime(stop.fixedTime) : null;
-      const arrive = fixed ? Math.max(cursor, fixed) : cursor;
-      const leave = arrive + stop.durationMin;
+      const station = depart !== null ? depart - (t?.preArriveMin ?? 30) : fixed;
+      const arrive = station !== null ? Math.max(cursor, station) : cursor;
+      let leave = arrive + stop.durationMin;
+      if (t?.arriveTime) {
+        const raw = parseTime(t.arriveTime);
+        const at = depart !== null && raw < depart ? raw + 1440 : raw;
+        leave = Math.max(arrive, at);
+      }
       const leg = legs[i];
       cursor = leave + (leg?.durationMin ?? 0);
       return { stop, arrive, leave, leg };
@@ -205,10 +215,13 @@ function App() {
 
   const totalMeters = legs.reduce((sum, l) => sum + l.distanceM, 0);
   const totalMinutes = timeline.length
-    ? timeline[timeline.length - 1].leave - parseTime(activeDay.startTime)
+    ? timeline[timeline.length - 1].leave - parseTime(activeDay.earliestStart || activeDay.startTime)
     : 0;
   const tripMeters = Object.values(routesByDay).flat().reduce((sum, leg) => sum + leg.distanceM, 0);
   const tripRouteMinutes = Object.values(routesByDay).flat().reduce((sum, leg) => sum + leg.durationMin, 0);
+  const latestEnd = activeDay.latestEnd ? parseTime(activeDay.latestEnd) : null;
+  const lastLeave = timeline.length ? timeline[timeline.length - 1].leave : 0;
+  const overrun = latestEnd !== null && lastLeave > latestEnd ? lastLeave - latestEnd : 0;
   const totalStops = trip.days.reduce((sum, day) => sum + day.stops.length, 0);
   const totalStayMinutes = trip.days.reduce(
     (sum, day) => sum + day.stops.reduce((daySum, stop) => daySum + stop.durationMin, 0),
@@ -281,6 +294,22 @@ function App() {
     });
   };
 
+  const setDayWindow = (patch: { earliestStart?: string; latestEnd?: string }) => {
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, ...patch } : day)),
+          },
+        },
+      };
+    });
+  };
+
   const updateDayTitle = (title: string) => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
@@ -344,6 +373,8 @@ function App() {
         title: `第 ${index} 天`,
         cityId: currentTrip.days[currentTrip.days.length - 1].cityId ?? prev.activeCity,
         startTime: last.startTime,
+        earliestStart: last.earliestStart,
+        latestEnd: last.latestEnd,
         stops: [],
       };
       return {
@@ -745,11 +776,19 @@ function App() {
         <label className="time-picker">出发<input type="time" value={activeDay.startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
       </div>
 
+      <div className="day-window">
+        <label>最早出发<input type="time" value={activeDay.earliestStart ?? ''} onChange={(e) => setDayWindow({ earliestStart: e.target.value || undefined })} /></label>
+        <label>最晚结束<input type="time" value={activeDay.latestEnd ?? ''} onChange={(e) => setDayWindow({ latestEnd: e.target.value || undefined })} /></label>
+        {overrun > 0 && <span className="time-warning">超出最晚时间 {formatDuration(overrun)}</span>}
+      </div>
+
       <button className="lodging-card" onClick={() => setLodgingOpen(true)}>
         {activeDay.lodging ? (
           <>
             <strong>住宿 · {activeDay.lodging.name}</strong>
-            <span>入住 {activeDay.lodging.checkIn} · 退房 {activeDay.lodging.checkOut}</span>
+            <span>入住 {activeDay.lodging.checkIn} · 退房 {activeDay.lodging.checkOut}{activeDay.lodging.nights ? ` · ${activeDay.lodging.nights} 晚` : ''}</span>
+            {activeDay.lodging.address && <span>{activeDay.lodging.address}</span>}
+            {activeDay.lodging.booking && <span>订单 · {activeDay.lodging.booking}</span>}
             {activeDay.lodging.note && <span>{activeDay.lodging.note}</span>}
             <small>点击修改</small>
           </>
@@ -1048,7 +1087,7 @@ function StopRow({ stop, index, arrive, leave, leg, active, onOpen, onToggleTran
       <article className={`stop-card${active ? ' active' : ''}`} onClick={onOpen}>
         <div className="stop-card-head">
           <span className="stop-index">{String(index + 1).padStart(2, '0')}</span>
-          <div className="stop-title"><h3>{stop.name}</h3><p>{stop.category} · 停留 {stop.durationMin} 分钟{stop.fixedTime ? ` · 固定 ${stop.fixedTime}` : ''}</p></div>
+          <div className="stop-title"><h3>{stop.name}</h3><p>{stop.transportInfo ? `${stop.transportInfo.kind === 'flight' ? '航班' : stop.transportInfo.kind === 'train' ? '高铁/火车' : stop.transportInfo.kind === 'bus' ? '大巴' : stop.transportInfo.kind === 'ferry' ? '轮渡' : '交通'} ${stop.transportInfo.number || ''} · ${stop.transportInfo.from || '出发'} → ${stop.transportInfo.to || '到达'} · ${stop.transportInfo.departTime || '--:--'}–${stop.transportInfo.arriveTime || '--:--'}` : `${stop.category} · 停留 ${stop.durationMin} 分钟${stop.fixedTime ? ` · 固定 ${stop.fixedTime}` : ''}`}</p></div>
           <button
             className="drag-handle"
             aria-label="拖动排序"
