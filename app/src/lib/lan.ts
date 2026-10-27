@@ -58,8 +58,8 @@ export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'
   return await response.json();
 }
 
-export async function probeLan(info: Pick<LanInfo, 'ip' | 'port'>): Promise<LanInfo> {
-  const response = await fetch(`http://${info.ip}:${info.port}/info`, { cache: 'no-store' });
+export async function probeLan(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<LanInfo> {
+  const response = await fetch(`http://${info.ip}:${info.port}/info?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 }

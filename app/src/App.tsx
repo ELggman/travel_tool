@@ -723,7 +723,11 @@ function App() {
     setLanBusy(true);
     try {
       const snap = await fetchLanSnapshot(lanInfo);
-      if (snap.trip) applyRemoteTrip(snap.trip as Trip);
+      lanVersionRef.current = snap.version;
+      if (snap.trip) {
+        lanJsonRef.current = JSON.stringify(snap.trip);
+        applyRemoteTrip(snap.trip as Trip);
+      }
       setLanInfo({ ...lanInfo, version: snap.version });
       setLanStatus(`已拉取 v${snap.version}`);
     } catch (err) {
@@ -740,7 +744,7 @@ function App() {
     if (!ip || !room) { setLanStatus('请填写房主 IP 和房间码'); return; }
     setLanBusy(true);
     try {
-      const info = await probeLan({ ip, port });
+      const info = await probeLan({ ip, port, room });
       if (info.room !== room) throw new Error('房间码不匹配');
       const snap = await fetchLanSnapshot({ ip, port, room });
       if (snap.trip) applyRemoteTrip(snap.trip as Trip);
@@ -803,9 +807,12 @@ function App() {
   useEffect(() => {
     if (!lanInfo || !lanRole) return;
     let cancelled = false;
+    let inFlight = false;
     const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
       const info = lanInfoRef.current;
-      if (!info || cancelled) return;
+      if (!info || cancelled) { inFlight = false; return; }
       try {
         const snap = await fetchLanSnapshot(info);
         if (cancelled || snap.version <= lanVersionRef.current || !snap.trip) return;
@@ -819,6 +826,8 @@ function App() {
         setLanStatus(`已自动同步 · v${snap.version}`);
       } catch {
         // Poll again; no modal errors while the Wi-Fi is briefly unavailable.
+      } finally {
+        inFlight = false;
       }
     };
     void tick();

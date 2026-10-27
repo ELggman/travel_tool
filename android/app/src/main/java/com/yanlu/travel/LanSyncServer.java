@@ -19,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -53,6 +52,8 @@ public final class LanSyncServer {
     public synchronized String start() throws IOException {
         if (running) return infoJson();
         room = String.format("%06d", random.nextInt(1_000_000));
+        snapshot = "";
+        version = 0;
         members.clear();
         serverSocket = new ServerSocket();
         serverSocket.setReuseAddress(true);
@@ -132,10 +133,6 @@ public final class LanSyncServer {
                 return;
             }
             String cleanPath = path.split("\\?", 2)[0];
-            if (cleanPath.equals("/info")) {
-                send(socket, 200, infoJson());
-                return;
-            }
             String query = path.contains("?") ? path.substring(path.indexOf('?') + 1) : "";
             Map<String, String> params = new HashMap<>();
             for (String part : query.split("&")) {
@@ -149,6 +146,10 @@ public final class LanSyncServer {
             String requestedRoom = params.get("room");
             if (requestedRoom == null || !requestedRoom.equals(room)) {
                 send(socket, 403, "{\"ok\":false,\"error\":\"room mismatch\"}");
+                return;
+            }
+            if (cleanPath.equals("/info")) {
+                send(socket, 200, infoJson());
                 return;
             }
             if (cleanPath.equals("/hello") && method.equals("POST")) {
@@ -173,6 +174,10 @@ public final class LanSyncServer {
                 return;
             }
             if (cleanPath.equals("/snapshot") && method.equals("POST")) {
+                if (contentLength > 2_000_000) {
+                    send(socket, 413, "{\"ok\":false,\"error\":\"snapshot too large\"}");
+                    return;
+                }
                 byte[] body = readBody(reader, contentLength);
                 String json = new String(body, StandardCharsets.UTF_8);
                 if (!json.trim().startsWith("{")) {
@@ -194,10 +199,7 @@ public final class LanSyncServer {
 
     private String membersJson() {
         long now = System.currentTimeMillis();
-        Iterator<Map.Entry<String, Member>> it = members.entrySet().iterator();
-        while (it.hasNext()) {
-            if (now - it.next().getValue().seenAt > 12000) it.remove();
-        }
+        members.entrySet().removeIf(entry -> now - entry.getValue().seenAt > 12000);
         StringBuilder json = new StringBuilder("{\"ok\":true,\"members\":[");
         boolean first = true;
         for (Member member : members.values()) {
@@ -213,20 +215,21 @@ public final class LanSyncServer {
     }
 
     private static byte[] readBody(BufferedReader reader, int length) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(0, length));
+        ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(0, Math.min(length, 2_000_000)));
+        char[] buffer = new char[8192];
         int remaining = length;
         while (remaining > 0) {
-            int c = reader.read();
-            if (c < 0) break;
-            out.write(c);
-            remaining--;
+            int n = reader.read(buffer, 0, Math.min(buffer.length, remaining));
+            if (n < 0) break;
+            for (int i = 0; i < n; i++) out.write(buffer[i]);
+            remaining -= n;
         }
         return out.toByteArray();
     }
 
     private void send(Socket socket, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        String reason = status == 200 ? "OK" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : "Not Found";
+        String reason = status == 200 ? "OK" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : status == 413 ? "Payload Too Large" : "Not Found";
         String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
                 + "Content-Type: application/json; charset=utf-8\r\n"
                 + "Content-Length: " + bytes.length + "\r\n"
