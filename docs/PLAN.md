@@ -745,6 +745,7 @@ travel_tool/
 | 切后台/回前台 | **通过（双模拟器）**：Guest 按 Home 后 Host 改标题，Guest 回前台自动拉取 v3 |
 | 锁屏/解锁 | **通过（双模拟器）**：Guest 锁屏、Host 改标题、解锁后不误报房主离开，自动同步 v2 |
 | 3 客户端 | **通过（Android Host + Android Guest + 浏览器 Guest）**：成员 3 人，浏览器修改同步到两端，Guest 离开后 2 人 |
+| 成员昵称 | **通过**：Host“房主Momo” + 浏览器 Guest“阿宁”，成员列表显示 `房主Momo · 阿宁` |
 | 离线修改重连后可合并 | **通过（模拟断网）**：移除 adb forward 模拟断网，Guest 本地编辑后恢复连接，自动重试并同步 v2 |
 | 房主离开不丢本地数据 | **部分**：Guest 保留本地副本；房主关闭房间后 Guest 轮询失败但不清空数据（未显式提示“房主已离开”） |
 | 离线地图 + 局域网协作同时可用 | **未验证**：未做飞行模式 + 局域网的组合测试 |
@@ -895,6 +896,7 @@ git push -u origin feat/map-engine
 - 2026-10-27 锁屏修复：原生 onPause/onResume/onWindowFocusChanged 通知 JS；锁屏期间不判定房主离开，回前台重置失败计数并给 8 秒缓冲；双模拟器锁屏测试通过。
 - 2026-10-27 JSON 备份：同行页增加“导入 JSON 备份”，支持导出的 `{trip, exportedAt}` 与裸 Trip；网页文件输入导入验证通过。详见 [备份记录](backup/README.md)。
 - 2026-10-27 三客户端：Android Host + Android Guest + 浏览器 Guest，3 人在线，浏览器修改同步到两端，Guest 离开后回到 2 人。详见 [三客户端记录](m3/lan/three-client/README.md)。
+- 2026-10-27 成员昵称：新增“我的昵称”，用于 `/hello` 与成员列表；Host“房主Momo” + 浏览器 Guest“阿宁”验证通过。
 
 ### 下一步
 

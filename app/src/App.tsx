@@ -141,6 +141,9 @@ function App() {
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [lanMembers, setLanMembers] = useState<string[]>([]);
+  const [lanNickname, setLanNickname] = useState(() => {
+    try { return localStorage.getItem('yanlu.lan.name') ?? ''; } catch { return ''; }
+  });
   const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
   const [lanGone, setLanGone] = useState(false);
   const [lanRetry, setLanRetry] = useState(0);
@@ -947,7 +950,7 @@ function App() {
   useEffect(() => {
     if (!lanInfo || !lanRole) return;
     let cancelled = false;
-    const name = lanRole === 'host' ? '房主' : '同行者';
+    const name = lanNickname.trim() || (lanRole === 'host' ? '房主' : '同行者');
     const tick = async () => {
       const info = lanInfoRef.current;
       if (!info || cancelled) return;
@@ -1323,6 +1326,20 @@ function App() {
 
           <section className="people-card lan-card">
             <div className="people-title"><strong>局域网同步</strong><span>{lanSupported() ? '同一 Wi-Fi · 无云端' : '仅 Android App 可用'}</span></div>
+            {!lanInfo && (
+              <label className="lan-name">我的昵称
+                <input
+                  value={lanNickname}
+                  maxLength={12}
+                  placeholder={lanSupported() ? '可选，例如 Momo' : '可选'}
+                  onChange={(e) => {
+                    const value = e.target.value.slice(0, 12);
+                    setLanNickname(value);
+                    try { localStorage.setItem('yanlu.lan.name', value); } catch { /* ignore */ }
+                  }}
+                />
+              </label>
+            )}
             {lanInfo && lanRole ? (
               <>
                 <div className="lan-room">

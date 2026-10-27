@@ -41,7 +41,7 @@ Android Host（emulator-5554，LanSyncServer）
 ## 限制
 
 - 不是 3 台 Android 真机；第三端是浏览器
-- 成员显示名固定为“房主 / 同行者”，两个 Guest 同名，没有设备昵称
+- 成员昵称已支持（2026-10-27）：可在加入房间前设置；已验证 Host“房主Momo” + 浏览器 Guest“阿宁”显示为 `房主Momo · 阿宁`
 - 未测 3 个客户端同时写同一字段
 - 未测弱网/丢包
 - 仍经 adb forward，不是真实 Wi-Fi
