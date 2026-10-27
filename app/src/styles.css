@@ -468,3 +468,4 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .lan-conflict { margin: 10px 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .lan-conflict strong { font-size: 10px; color: var(--accent); }
 .lan-conflict p { margin: 4px 0 0; font-size: 8px; color: var(--muted); line-height: 1.5; }
+.lan-gone { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); font-size: 8px; line-height: 1.6; color: var(--accent); }

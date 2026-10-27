@@ -142,6 +142,7 @@ function App() {
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [lanMembers, setLanMembers] = useState<string[]>([]);
   const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
+  const [lanGone, setLanGone] = useState(false);
   const lanVersionRef = useRef(0);
   const lanJsonRef = useRef('');
   const lanApplyingRef = useRef(false);
@@ -695,6 +696,7 @@ function App() {
       setLanRole('host');
       setLanMembers([]);
       setLanConflict(null);
+      setLanGone(false);
       lanVersionRef.current = 0;
       lanSeqRef.current = 0;
       lanFailuresRef.current = 0;
@@ -714,6 +716,7 @@ function App() {
     setLanRole(null);
     setLanMembers([]);
     setLanConflict(null);
+    setLanGone(false);
     lanVersionRef.current = 0;
     lanSeqRef.current = 0;
     lanJsonRef.current = '';
@@ -771,6 +774,7 @@ function App() {
       setLanRole('guest');
       setLanMembers([]);
       setLanConflict(null);
+      setLanGone(false);
       lanVersionRef.current = snap.version;
       lanSeqRef.current = 0;
       lanFailuresRef.current = 0;
@@ -806,7 +810,7 @@ function App() {
   // Host and guest both keep the room snapshot warm. The host publishes local
   // edits; a guest publishes its local edits too. Version guards stop echoes.
   useEffect(() => {
-    if (!lanInfo || !lanRole || lanConflict) return;
+    if (!lanInfo || !lanRole || lanConflict || lanGone) return;
     const json = JSON.stringify(trip);
     if (json === lanJsonRef.current) return;
     const timer = window.setTimeout(async () => {
@@ -833,7 +837,7 @@ function App() {
     }, 900);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanConflict]);
+  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanConflict, lanGone]);
 
   useEffect(() => {
     if (!lanInfo || !lanRole) return;
@@ -881,11 +885,16 @@ function App() {
           lanBaseTripRef.current = remoteTrip;
         }
         lanFailuresRef.current = 0;
+        if (lanGone) setLanGone(false);
         setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
         setLanStatus(`已自动同步 · v${snap.version}`);
       } catch {
         lanFailuresRef.current += 1;
         if (lanFailuresRef.current >= 2) setLanStatus('连接中断，重试中…');
+        if (lanRole === 'guest' && lanFailuresRef.current >= 4) {
+          setLanGone(true);
+          setLanStatus('房主已离开或房间已关闭，本机数据仍保留');
+        }
       } finally {
         inFlight = false;
       }
@@ -939,6 +948,7 @@ function App() {
     setLanRole(null);
     setLanMembers([]);
     setLanConflict(null);
+    setLanGone(false);
     lanBaseTripRef.current = null;
     setLanStatus('已离开房间');
   };
@@ -1304,6 +1314,7 @@ function App() {
                 </div>
               </>
             )}
+            {lanGone && <p className="lan-gone">房主已离开。当前行程仍保存在本机，可导出备份；重新同步需房主重新开房并再次加入。</p>}
             {lanStatus && <p className="lan-status">{lanStatus}</p>}
           </section>
 

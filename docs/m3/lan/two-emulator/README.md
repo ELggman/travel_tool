@@ -33,10 +33,22 @@ Guest App (emulator-5556)
 4. Guest 改当天标题为“双模拟器同步” → Host 自动收到
 5. Host 改当天标题为“房主反向同步” → Guest 自动更新
 6. 服务端版本递增，最终 v3
+7. Host 关闭房间 → Guest 约 6 秒后显示“房主已离开。当前行程仍保存在本机…”；本地行程仍在
+8. 同字段并发修改：
+   - Host 本地改标题“冲突Host”，Guest 同时改“冲突Guest”
+   - Host 自动同步 v2；Guest 收到 409，显示冲突 `trip.days[day-chongqing-1].title`
+   - Guest 点“采用远端”后标题变为“冲突Host”
 
 ![Host 房间](../screenshots/host-room.png)
 
 ![Guest 房间](../screenshots/guest-room.png)
+
+## 异常路径
+
+- **房主离开**：Guest 连续 4 次轮询失败（约 6 秒）后显示明确提示，不自动清空本机行程。
+- **同字段并发**：先写入者成功；后写入者收到 409，三向合并判定为冲突，显示字段路径与“采用远端 / 保留本机并推送”。
+
+![Guest 同字段冲突](../reliability/screenshots/guest-conflict.png)
 
 ## 这次验证覆盖了什么
 
@@ -52,7 +64,8 @@ Guest App (emulator-5556)
 - NSD 发现（当前无 NSD）
 - 锁屏、切后台、前台服务
 - 断网 → 重连
-- 同字段冲突、三向合并的真实双 App 并发（此前用浏览器 Guest + 直接 POST 验证）
+- 断网/恢复（未真实切断网络）
+- 锁屏、后台超过数分钟
 - 5 台以上设备、弱网、丢包、延迟
 - 真机厂商 WebView 差异
 
