@@ -12,6 +12,7 @@ type LanBridge = {
   stop(): string;
   info(): string;
   publish(json: string): string;
+  publishAt?(json: string, baseVersion: number): string;
 };
 
 declare global {
@@ -45,8 +46,12 @@ export function stopLanHost(): void {
   bridge().stop();
 }
 
-export function publishLanSnapshot(info: LanInfo, trip: unknown): { ok: boolean; version?: number; error?: string } {
-  return JSON.parse(bridge().publish(JSON.stringify(trip)));
+export function publishLanSnapshot(info: LanInfo, trip: unknown, baseVersion?: number): { ok: boolean; version?: number; error?: string } {
+  const payload = JSON.stringify(trip);
+  const raw = baseVersion !== undefined && baseVersion >= 0 && bridge().publishAt
+    ? bridge().publishAt!(payload, baseVersion)
+    : bridge().publish(payload);
+  return JSON.parse(raw);
 }
 
 export async function fetchLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<{ ok: boolean; version: number; trip: unknown }> {
@@ -56,16 +61,18 @@ export async function fetchLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room
   return await response.json();
 }
 
-export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>, trip: unknown): Promise<{ ok: boolean; version?: number }> {
-  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}`;
+export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>, trip: unknown, baseVersion?: number): Promise<{ ok: boolean; version?: number; error?: string }> {
+  const suffix = baseVersion === undefined ? '' : `&baseVersion=${baseVersion}`;
+  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}${suffix}`;
   const response = await request(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(trip),
     cache: 'no-store',
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return await response.json();
+  const data = await response.json();
+  if (!response.ok || !data.ok) return { ok: false, version: data.version, error: data.error ?? `HTTP ${response.status}` };
+  return data;
 }
 
 export async function probeLan(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<LanInfo> {

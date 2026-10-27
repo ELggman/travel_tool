@@ -17,6 +17,7 @@ import {
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
 import { fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
+import { merge3 } from './lib/threeWay';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -140,7 +141,7 @@ function App() {
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [lanMembers, setLanMembers] = useState<string[]>([]);
-  const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number } | null>(null);
+  const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
   const lanVersionRef = useRef(0);
   const lanJsonRef = useRef('');
   const lanApplyingRef = useRef(false);
@@ -155,7 +156,8 @@ function App() {
     lanDeviceIdRef.current = id;
   }
   const lanInfoRef = useRef<LanInfo | null>(null);
-  const lanConflictRef = useRef<{ trip: Trip; version: number } | null>(null);
+  const lanConflictRef = useRef<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
+  const lanBaseTripRef = useRef<Trip | null>(null);
   const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
@@ -662,19 +664,23 @@ function App() {
     }
   };
 
-  const applyRemoteTrip = (raw: Trip) => {
+  const applyRemoteTrip = (raw: Trip, setBase = true) => {
     if (!raw || !Array.isArray(raw.days) || !raw.days.length) return;
     const city = availableCities.includes(raw.cityId) ? raw.cityId : activeCity;
     const next = normalizeTrip(raw, city);
     lanApplyingRef.current = true;
-    lanJsonRef.current = JSON.stringify(next);
+    if (setBase) {
+      lanJsonRef.current = JSON.stringify(next);
+      lanBaseTripRef.current = next;
+    }
     setState((prev) => ({
       ...prev,
       activeCity: city,
       trips: { ...prev.trips, [city]: next },
     }));
-    setNotice('已接收同行设备的行程');
+    setNotice(setBase ? '已接收同行设备的行程' : '已合并同行设备的修改');
     window.setTimeout(() => { lanApplyingRef.current = false; }, 60);
+    return next;
   };
 
   const startRoom = async () => {
@@ -689,6 +695,7 @@ function App() {
       setLanConflict(null);
       lanVersionRef.current = 0;
       lanJsonRef.current = '';
+      lanBaseTripRef.current = tripRef.current;
       setLanStatus(`房间 ${info.room} 已开启`);
     } catch (err) {
       setLanStatus(`开启失败：${err instanceof Error ? err.message : String(err)}`);
@@ -705,17 +712,19 @@ function App() {
     setLanConflict(null);
     lanVersionRef.current = 0;
     lanJsonRef.current = '';
+    lanBaseTripRef.current = null;
     setLanStatus('房间已关闭');
   };
 
   const publishHost = () => {
     if (!lanInfo) return;
     try {
-      const result = publishLanSnapshot(lanInfo, trip);
-      if (!result.ok) throw new Error(result.error ?? '发布失败');
+      const result = publishLanSnapshot(lanInfo, trip, lanVersionRef.current);
+      if (!result.ok) throw new Error(result.error === 'version conflict' ? '远端已更新，请先拉取/合并' : result.error ?? '发布失败');
       const v = result.version ?? lanInfo.version;
       lanVersionRef.current = v;
       lanJsonRef.current = JSON.stringify(trip);
+      lanBaseTripRef.current = tripRef.current;
       setLanInfo({ ...lanInfo, version: v });
       setLanStatus(`已发布当前行程 · v${v}`);
     } catch (err) {
@@ -752,13 +761,14 @@ function App() {
       const info = await probeLan({ ip, port, room });
       if (info.room !== room) throw new Error('房间码不匹配');
       const snap = await fetchLanSnapshot({ ip, port, room });
-      if (snap.trip) applyRemoteTrip(snap.trip as Trip);
+      const joined = snap.trip ? applyRemoteTrip(snap.trip as Trip, true) : null;
       setLanInfo({ ip, port, room, version: snap.version });
       setLanRole('guest');
       setLanMembers([]);
       setLanConflict(null);
       lanVersionRef.current = snap.version;
-      lanJsonRef.current = snap.trip ? JSON.stringify(snap.trip) : '';
+      lanJsonRef.current = joined ? JSON.stringify(joined) : '';
+      lanBaseTripRef.current = joined ?? tripRef.current;
       setLanStatus(`已加入房间 ${room} · v${snap.version}`);
     } catch (err) {
       setLanStatus(`加入失败：${err instanceof Error ? err.message : String(err)}`);
@@ -771,10 +781,12 @@ function App() {
     if (!lanInfo) return;
     setLanBusy(true);
     try {
-      const result = await pushLanSnapshot(lanInfo, trip);
+      const result = await pushLanSnapshot(lanInfo, trip, lanVersionRef.current);
+      if (!result.ok) throw new Error(result.error === 'version conflict' ? '远端已更新，请先拉取/合并' : result.error ?? '推送失败');
       const v = result.version ?? lanInfo.version;
       lanVersionRef.current = v;
       lanJsonRef.current = JSON.stringify(trip);
+      lanBaseTripRef.current = tripRef.current;
       setLanInfo({ ...lanInfo, version: v });
       setLanStatus(`已推送本机行程 · v${v}`);
     } catch (err) {
@@ -795,11 +807,16 @@ function App() {
       if (!info) return;
       try {
         const result = lanRole === 'host'
-          ? publishLanSnapshot(info, tripRef.current)
-          : await pushLanSnapshot(info, tripRef.current);
+          ? publishLanSnapshot(info, tripRef.current, lanVersionRef.current)
+          : await pushLanSnapshot(info, tripRef.current, lanVersionRef.current);
+        if (!result.ok) {
+          setLanStatus(`同步冲突 · 服务端 v${result.version ?? '?'}，等待合并`);
+          return;
+        }
         const v = result.version ?? info.version;
         lanVersionRef.current = v;
         lanJsonRef.current = json;
+        lanBaseTripRef.current = tripRef.current;
         setLanInfo((prev) => (prev ? { ...prev, version: v } : prev));
         setLanStatus(`自动同步 · v${v}`);
       } catch {
@@ -822,21 +839,39 @@ function App() {
       try {
         const snap = await fetchLanSnapshot(info);
         if (cancelled || snap.version <= lanVersionRef.current || !snap.trip) return;
-        const localJson = JSON.stringify(tripRef.current);
-        const remoteJson = JSON.stringify(snap.trip);
+        const localTrip = tripRef.current;
+        if (!localTrip) return;
+        const remoteTrip = { ...(snap.trip as Trip), activeDayId: localTrip.activeDayId };
+        const localJson = JSON.stringify(localTrip);
+        const remoteJson = JSON.stringify(remoteTrip);
         const dirty = localJson !== lanJsonRef.current;
         if (dirty && remoteJson !== localJson) {
+          const base = lanBaseTripRef.current;
+          const baseForMerge = base ? { ...base, activeDayId: localTrip.activeDayId } : null;
+          const merged = baseForMerge ? merge3(baseForMerge, localTrip, remoteTrip) : { value: localTrip, conflicts: ['缺少同步基线'] };
+          lanVersionRef.current = snap.version;
+          if (!merged.conflicts.length) {
+            if (lanConflictRef.current) setLanConflict(null);
+            applyRemoteTrip(merged.value as Trip, false);
+            setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
+            setLanStatus(`已自动合并远端修改 v${snap.version}`);
+            return;
+          }
           const currentConflict = lanConflictRef.current;
           if (!currentConflict || snap.version > currentConflict.version) {
-            setLanConflict({ trip: snap.trip as Trip, version: snap.version });
-            lanConflictRef.current = { trip: snap.trip as Trip, version: snap.version };
-            setLanStatus(`检测到远端修改 v${snap.version}，请选择保留哪一边`);
+            const conflict = { trip: remoteTrip, version: snap.version, conflicts: merged.conflicts };
+            setLanConflict(conflict);
+            lanConflictRef.current = conflict;
+            setLanStatus(`检测到字段冲突 v${snap.version}，请选择保留哪一边`);
           }
           return;
         }
         lanVersionRef.current = snap.version;
-        if (remoteJson !== localJson) applyRemoteTrip(snap.trip as Trip);
-        lanJsonRef.current = remoteJson;
+        if (remoteJson !== localJson) applyRemoteTrip(remoteTrip, true);
+        else {
+          lanJsonRef.current = remoteJson;
+          lanBaseTripRef.current = remoteTrip;
+        }
         setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
         setLanStatus(`已自动同步 · v${snap.version}`);
       } catch {
@@ -894,6 +929,7 @@ function App() {
     setLanRole(null);
     setLanMembers([]);
     setLanConflict(null);
+    lanBaseTripRef.current = null;
     setLanStatus('已离开房间');
   };
 
@@ -1222,8 +1258,8 @@ function App() {
                 {lanMembers.length > 0 && <p className="lan-members">{lanMembers.join(' · ')}</p>}
                 {lanConflict && (
                   <div className="lan-conflict">
-                    <strong>发现远端修改 v{lanConflict.version}</strong>
-                    <p>本机和远端都有未同步的修改，不会自动覆盖。</p>
+                    <strong>发现字段冲突 v{lanConflict.version}</strong>
+                    <p>{lanConflict.conflicts.slice(0, 3).join(' · ')}{lanConflict.conflicts.length > 3 ? ' …' : ''}</p>
                     <div className="people-actions">
                       <button className="primary" onClick={acceptRemoteConflict}>采用远端</button>
                       <button className="text-btn" onClick={keepLocalConflict}>保留本机并推送</button>

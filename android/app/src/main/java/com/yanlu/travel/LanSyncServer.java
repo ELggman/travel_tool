@@ -80,7 +80,14 @@ public final class LanSyncServer {
     }
 
     public synchronized String publish(String tripJson) {
+        return publishAt(tripJson, -1);
+    }
+
+    public synchronized String publishAt(String tripJson, int baseVersion) {
         if (!running) return "{\"ok\":false,\"error\":\"host not running\"}";
+        if (baseVersion >= 0 && baseVersion != version) {
+            return "{\"ok\":false,\"error\":\"version conflict\",\"version\":" + version + "}";
+        }
         if (tripJson == null) tripJson = "";
         snapshot = tripJson;
         version++;
@@ -190,11 +197,14 @@ public final class LanSyncServer {
                     send(socket, 400, "{\"ok\":false,\"error\":\"invalid json\"}");
                     return;
                 }
-                synchronized (this) {
-                    snapshot = json;
-                    version++;
+                int baseVersion = -1;
+                try {
+                    String rawBase = params.get("baseVersion");
+                    if (rawBase != null) baseVersion = Integer.parseInt(rawBase);
+                } catch (NumberFormatException ignored) {
                 }
-                send(socket, 200, "{\"ok\":true,\"version\":" + version + "}");
+                String result = publishAt(json, baseVersion);
+                send(socket, result.contains("\"ok\":false") ? 409 : 200, result);
                 return;
             }
             send(socket, 404, "{\"ok\":false,\"error\":\"not found\"}");
@@ -235,7 +245,7 @@ public final class LanSyncServer {
 
     private void send(Socket socket, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        String reason = status == 200 ? "OK" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : status == 413 ? "Payload Too Large" : "Not Found";
+        String reason = status == 200 ? "OK" : status == 409 ? "Conflict" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : status == 413 ? "Payload Too Large" : "Not Found";
         String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
                 + "Content-Type: application/json; charset=utf-8\r\n"
                 + "Content-Length: " + bytes.length + "\r\n"
