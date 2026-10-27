@@ -143,6 +143,7 @@ function App() {
   const [lanMembers, setLanMembers] = useState<string[]>([]);
   const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
   const [lanGone, setLanGone] = useState(false);
+  const [lanRetry, setLanRetry] = useState(0);
   const lanVersionRef = useRef(0);
   const lanJsonRef = useRef('');
   const lanApplyingRef = useRef(false);
@@ -697,6 +698,7 @@ function App() {
       setLanMembers([]);
       setLanConflict(null);
       setLanGone(false);
+      setLanRetry(0);
       lanVersionRef.current = 0;
       lanSeqRef.current = 0;
       lanFailuresRef.current = 0;
@@ -775,6 +777,7 @@ function App() {
       setLanMembers([]);
       setLanConflict(null);
       setLanGone(false);
+      setLanRetry(0);
       lanVersionRef.current = snap.version;
       lanSeqRef.current = 0;
       lanFailuresRef.current = 0;
@@ -837,7 +840,7 @@ function App() {
     }, 900);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanConflict, lanGone]);
+  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanConflict, lanGone, lanRetry]);
 
   useEffect(() => {
     if (!lanInfo || !lanRole) return;
@@ -850,7 +853,14 @@ function App() {
       if (!info || cancelled) { inFlight = false; return; }
       try {
         const snap = await fetchLanSnapshot(info);
-        if (cancelled || snap.version <= lanVersionRef.current || !snap.trip) return;
+        if (cancelled) return;
+        const wasOffline = lanFailuresRef.current > 0;
+        if (wasOffline) {
+          lanFailuresRef.current = 0;
+          setLanGone(false);
+          setLanRetry((n) => n + 1);
+        }
+        if (snap.version <= lanVersionRef.current || !snap.trip) return;
         const localTrip = tripRef.current;
         if (!localTrip) return;
         const remoteTrip = { ...(snap.trip as Trip), activeDayId: localTrip.activeDayId };
@@ -949,6 +959,7 @@ function App() {
     setLanMembers([]);
     setLanConflict(null);
     setLanGone(false);
+    setLanRetry(0);
     lanBaseTripRef.current = null;
     setLanStatus('已离开房间');
   };
