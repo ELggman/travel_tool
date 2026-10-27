@@ -906,6 +906,7 @@ git push -u origin feat/map-engine
 - 2026-10-27 长断网：移除 adb forward 60 秒，Guest 改标题+地点类别，恢复后 Host 两处均收到。详见 [长断网记录](m3/lan/long-disconnect/README.md)。
 - 2026-10-27 包校验：下载 zip 后校验 `.sha256` sidecar 再解压；重庆包 sidecar 与 zip 哈希验证一致。详见 [pack SHA 记录](m2/pack-sha/README.md)。
 - 2026-10-27 路线可解释性：打车段标注“估算”，A* 失败回退标注“粗略”；修正同行页过期的“手动快照同步”文案。详见 [路线标签记录](m2/route-labels/README.md)。
+- 2026-10-27 回归与真机用例：Web 冒烟 + 双 Android 模拟器互连通过；新增 [双真机测试用例](testing/real-device-test-cases.md) 与 [回归记录](testing/regression-2026-10-27.md)。
 - 2026-10-27 tombstone：删除 Stop/Day 写入 `Trip.tombstones`，合并/加载时过滤；导入带墓碑的旧 Stop 验证被过滤。详见 [tombstone 记录](m3/lan/tombstones/README.md)。
 - 2026-10-27 变更历史 UI：同行页接入 `/history`，显示版本/clientId/baseVersion/时间；这是审计层，不是操作日志或 delta。详见 [变更历史记录](m3/lan/history/README.md)。
 - 2026-10-27 presence：`/hello` 增加 editing，成员列表显示当前天/地点；Host + 浏览器 Guest 验证通过。详见 [presence 记录](m3/lan/presence/README.md)。
