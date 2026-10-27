@@ -222,11 +222,11 @@ public final class LanSyncServer {
             }
             String requestedRoom = headerRoom;
             String clientIp = socket.getInetAddress().getHostAddress();
-            if (isBlocked(clientIp)) {
-                send(socket, 429, "{\"ok\":false,\"error\":\"too many attempts\"}");
-                return;
-            }
             if (requestedRoom == null || !requestedRoom.equals(room)) {
+                if (isBlocked(clientIp)) {
+                    send(socket, 429, "{\"ok\":false,\"error\":\"too many attempts\"}");
+                    return;
+                }
                 recordFailure(clientIp);
                 send(socket, 403, "{\"ok\":false,\"error\":\"room mismatch\"}");
                 return;

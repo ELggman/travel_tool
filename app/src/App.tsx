@@ -144,6 +144,11 @@ function App() {
   const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
   const [lanGone, setLanGone] = useState(false);
   const [lanRetry, setLanRetry] = useState(0);
+  const appActive = () => {
+    const bridge = typeof window !== 'undefined' ? window.YanluLan : undefined;
+    if (bridge?.isForeground) return bridge.isForeground();
+    return document.visibilityState === 'visible';
+  };
   const lanVersionRef = useRef(0);
   const lanJsonRef = useRef('');
   const lanApplyingRef = useRef(false);
@@ -162,6 +167,7 @@ function App() {
   const lanBaseTripRef = useRef<Trip | null>(null);
   const lanSeqRef = useRef(0);
   const lanFailuresRef = useRef(0);
+  const lanResumedAtRef = useRef(Date.now());
   const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
@@ -702,6 +708,7 @@ function App() {
       lanVersionRef.current = 0;
       lanSeqRef.current = 0;
       lanFailuresRef.current = 0;
+      lanResumedAtRef.current = Date.now();
       lanJsonRef.current = '';
       lanBaseTripRef.current = tripRef.current;
       setLanStatus(`房间 ${info.room} 已开启`);
@@ -901,7 +908,7 @@ function App() {
       } catch {
         lanFailuresRef.current += 1;
         if (lanFailuresRef.current >= 2) setLanStatus('连接中断，重试中…');
-        if (lanRole === 'guest' && lanFailuresRef.current >= 4) {
+        if (lanRole === 'guest' && appActive() && lanFailuresRef.current >= 4 && Date.now() - lanResumedAtRef.current > 8000) {
           setLanGone(true);
           setLanStatus('房主已离开或房间已关闭，本机数据仍保留');
         }
@@ -963,6 +970,22 @@ function App() {
     lanBaseTripRef.current = null;
     setLanStatus('已离开房间');
   };
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (!appActive() || !lanInfoRef.current) return;
+      lanFailuresRef.current = 0;
+      lanResumedAtRef.current = Date.now();
+      setLanGone(false);
+      setLanRetry((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('yanlu-foreground', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('yanlu-foreground', onVisible);
+    };
+  }, []);
 
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;

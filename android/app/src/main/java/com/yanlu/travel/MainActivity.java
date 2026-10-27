@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
 
     private LocalServer server;
     private LanSyncServer lanServer;
+    private boolean foreground = true;
     private WebView webView;
 
     @Override
@@ -104,6 +105,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public boolean isForeground() {
+            return foreground;
+        }
+
+        @JavascriptInterface
         public String publish(String tripJson) {
             return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.publish(tripJson);
         }
@@ -117,6 +123,34 @@ public class MainActivity extends Activity {
         public String publishAtSeq(String tripJson, int baseVersion, String clientId, int seq) {
             return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.publishAt(tripJson, baseVersion, clientId, seq);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        foreground = true;
+        notifyWebForeground(true);
+    }
+
+    @Override
+    protected void onPause() {
+        foreground = false;
+        notifyWebForeground(false);
+        super.onPause();
+    }
+
+    private void notifyWebForeground(boolean active) {
+        if (webView == null) return;
+        webView.evaluateJavascript(
+                "window.__yanluForeground=" + active + ";window.dispatchEvent(new Event('yanlu-foreground'));",
+                null);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        foreground = hasFocus;
+        notifyWebForeground(hasFocus);
     }
 
     @Override

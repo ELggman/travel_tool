@@ -43,7 +43,11 @@ Guest App (emulator-5556)
    - Guest 按 Home 退到后台
    - Host 改标题“后台主机更新”
    - Guest 回前台后自动拉取，状态“已自动同步 · v3”
-10. 同字段并发修改：
+10. 锁屏/解锁：
+   - Guest 锁屏，Host 改标题“锁屏稳定测试”
+   - Guest 解锁并回到 App
+   - 不再误报“房主已离开”，状态“已自动同步 · v2”
+11. 同字段并发修改：
    - Host 本地改标题“冲突Host”，Guest 同时改“冲突Guest”
    - Host 自动同步 v2；Guest 收到 409，显示冲突 `trip.days[day-chongqing-1].title`
    - Guest 点“采用远端”后标题变为“冲突Host”
@@ -55,6 +59,7 @@ Guest App (emulator-5556)
 ## 异常路径
 
 - **房主离开/断网**：Guest 连续 4 次轮询失败后显示明确提示。连接被拒绝（房主关闭）约 6 秒；网络黑洞（请求超时）约 10–15 秒。
+- **锁屏**：Android `onPause/onResume/onWindowFocusChanged` 通知 JS；锁屏期间不判定房主离开，回前台立即重试，并给 8 秒恢复缓冲。
 - **同字段并发**：先写入者成功；后写入者收到 409，三向合并判定为冲突，显示字段路径与“采用远端 / 保留本机并推送”。
 
 ![Guest 同字段冲突](../reliability/screenshots/guest-conflict.png)
@@ -74,8 +79,8 @@ Guest App (emulator-5556)
 - 锁屏、切后台、前台服务
 - 断网 → 重连
 - 真实 Wi-Fi 断网（本轮用移除 adb forward 模拟，不是路由器断网）
-- 锁屏（只测了按 Home 切后台）
 - 后台超过数分钟
+- 真实 Wi-Fi 断网/弱网
 - 5 台以上设备、弱网、丢包、延迟
 - 真机厂商 WebView 差异
 
