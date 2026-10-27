@@ -170,6 +170,7 @@ function App() {
   const lanResumedAtRef = useRef(Date.now());
   const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
@@ -656,6 +657,27 @@ function App() {
       setNotice('行程摘要已复制');
     } catch {
       setNotice('当前环境不支持复制，请稍后再试');
+    }
+  };
+
+  const importTrip = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text()) as { trip?: Trip } & Partial<Trip>;
+      const candidate = parsed.trip ?? (parsed as Trip);
+      if (!candidate || !Array.isArray(candidate.days) || !candidate.days.length) {
+        throw new Error('文件里没有有效行程');
+      }
+      const city = availableCities.includes(candidate.cityId as AvailableCityId) ? candidate.cityId as AvailableCityId : activeCity;
+      const next = normalizeTrip(candidate as Trip, city);
+      setState((prev) => ({
+        ...prev,
+        activeCity: city,
+        trips: { ...prev.trips, [city]: next },
+      }));
+      setPage('overview');
+      setNotice(state.downloaded.includes(city) ? '行程备份已导入' : '行程已导入，但该城市离线包尚未下载');
+    } catch (err) {
+      setNotice(`导入失败：${err instanceof Error ? err.message : '文件格式不正确'}`);
     }
   };
 
@@ -1366,8 +1388,20 @@ function App() {
             <div className="people-actions">
               <button className="primary" onClick={copySummary}>复制行程摘要</button>
               <button className="text-btn" onClick={exportTrip}>导出 JSON 备份</button>
+              <button className="text-btn" onClick={() => importInputRef.current?.click()}>导入 JSON 备份</button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importTrip(file);
+                  e.target.value = '';
+                }}
+              />
             </div>
-            <p className="people-note">摘要包含每天的城市、日期和地点顺序；备份可用于后续导入。</p>
+            <p className="people-note">摘要包含每天的城市、日期和地点顺序；导出文件可再次导入，作为无云端备份。</p>
           </section>
 
           <section className="people-card">
