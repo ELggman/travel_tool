@@ -47,8 +47,9 @@ public final class LanSyncServer {
 
     private static final class Member {
         final String name;
+        final String editing;
         final long seenAt;
-        Member(String name, long seenAt) { this.name = name; this.seenAt = seenAt; }
+        Member(String name, String editing, long seenAt) { this.name = name; this.editing = editing; this.seenAt = seenAt; }
     }
 
     private static final class FailureWindow {
@@ -242,7 +243,8 @@ public final class LanSyncServer {
                     send(socket, 400, "{\"ok\":false,\"error\":\"missing id\"}");
                     return;
                 }
-                members.put(id, new Member(name == null || name.isEmpty() ? "同行者" : name, System.currentTimeMillis()));
+                String editing = params.get("editing");
+                members.put(id, new Member(name == null || name.isEmpty() ? "同行者" : name, editing == null ? "" : editing, System.currentTimeMillis()));
                 send(socket, 200, membersJson());
                 return;
             }
@@ -307,7 +309,7 @@ public final class LanSyncServer {
         for (Member member : members.values()) {
             if (!first) json.append(',');
             first = false;
-            json.append("\"").append(escape(member.name)).append("\"");
+            json.append("{\"name\":\"").append(escape(member.name)).append("\",\"editing\":\"").append(escape(member.editing)).append("\"}");
         }
         return json.append("]}").toString();
     }

@@ -474,3 +474,4 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .lan-history { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
 .lan-history-row { display: grid; grid-template-columns: .5fr 1fr .7fr .6fr; gap: 6px; align-items: center; font-size: 8px; color: var(--muted); }
 .lan-history-row strong { color: var(--accent); font-size: 9px; }
+.lan-presence { margin: -3px 0 8px; font-size: 8px; color: var(--muted); line-height: 1.5; }

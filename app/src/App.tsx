@@ -16,7 +16,7 @@ import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
-import { fetchLanHistory, fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanHistoryEntry, type LanInfo } from './lib/lan';
+import { fetchLanHistory, fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanHistoryEntry, type LanInfo, type LanMember } from './lib/lan';
 import { merge3 } from './lib/threeWay';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
@@ -148,7 +148,7 @@ function App() {
   const [lanStatus, setLanStatus] = useState('');
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
-  const [lanMembers, setLanMembers] = useState<string[]>([]);
+  const [lanMembers, setLanMembers] = useState<LanMember[]>([]);
   const [lanHistory, setLanHistory] = useState<LanHistoryEntry[]>([]);
   const [lanNickname, setLanNickname] = useState(() => {
     try { return localStorage.getItem('yanlu.lan.name') ?? ''; } catch { return ''; }
@@ -982,11 +982,14 @@ function App() {
     if (!lanInfo || !lanRole) return;
     let cancelled = false;
     const name = lanNickname.trim() || (lanRole === 'host' ? '房主' : '同行者');
+    const editing = stopOpenId
+      ? stops.find((stop) => stop.id === stopOpenId)?.name ?? ''
+      : `${activeDay.label} ${activeDay.title ?? ''}`.trim();
     const tick = async () => {
       const info = lanInfoRef.current;
       if (!info || cancelled) return;
       try {
-        const result = await pingLan(info, lanDeviceIdRef.current, name);
+        const result = await pingLan(info, lanDeviceIdRef.current, name, editing);
         if (!cancelled) setLanMembers(result.members);
       } catch {
         // presence is best-effort
@@ -996,7 +999,7 @@ function App() {
     const timer = window.setInterval(tick, 3000);
     return () => { cancelled = true; window.clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
+  }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanNickname, stopOpenId, activeDay.id, activeDay.title]);
 
   const acceptRemoteConflict = () => {
     if (!lanConflict) return;
@@ -1399,7 +1402,8 @@ function App() {
                   <div><span>版本</span><strong>v{lanInfo.version}</strong></div>
                   <div><span>在线</span><strong>{lanMembers.length || 1} 人</strong></div>
                 </div>
-                {lanMembers.length > 0 && <p className="lan-members">{lanMembers.join(' · ')}</p>}
+                {lanMembers.length > 0 && <p className="lan-members">{lanMembers.map((member) => member.name).join(' · ')}</p>}
+                {lanMembers.some((member) => member.editing) && <p className="lan-presence">{lanMembers.filter((member) => member.editing).map((member) => `${member.name}：${member.editing}`).join(' · ')}</p>}
                 {lanConflict && (
                   <div className="lan-conflict">
                     <strong>发现字段冲突 v{lanConflict.version}</strong>

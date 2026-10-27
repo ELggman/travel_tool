@@ -1,3 +1,5 @@
+export type LanMember = { name: string; editing?: string };
+
 export type LanInfo = {
   ok?: boolean;
   ip: string;
@@ -108,8 +110,9 @@ export async function pingLan(
   info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
   id: string,
   name: string,
-): Promise<{ ok: boolean; members: string[] }> {
-  const url = `http://${info.ip}:${info.port}/hello?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`;
+  editing = '',
+): Promise<{ ok: boolean; members: LanMember[] }> {
+  const url = `http://${info.ip}:${info.port}/hello?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&editing=${encodeURIComponent(editing)}`;
   const response = await request(url, { method: 'POST', headers: roomHeaders(info.room), cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();

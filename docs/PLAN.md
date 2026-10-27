@@ -516,7 +516,7 @@ interface YanluSyncPlugin {
 | 加密 | AES-GCM（应用层） | 无 | 未做 |
 | 同步模型 | 操作日志 + rev + Lamport + delta | 快照 + 版本号 + 三向合并 + 幂等 | 偏离（见 §3.4.2） |
 | 删除 | tombstone | 已加 `Trip.tombstones`：删除 Stop/Day 写入墓碑，合并/加载时过滤 | 部分实现（无操作日志） |
-| 在线状态 | presence（stopId/editing） | 成员计数 + TTL | 部分 |
+| 在线状态 | presence（stopId/editing） | 成员计数 + 当前天/地点 presence + TTL | 已实现基础版 |
 | 前台服务/保活 | 必须 | 无（Activity 销毁即停服） | 未做 |
 | 离线导出导入 | 必须（兜底） | 仅 JSON 导出 | 部分 |
 | 双机真机验收 | 必须（Phase 5） | 两台 Android 模拟器 App-to-App 已通过（adb forward）；真机不可用，延后 | 替代验收通过，真机延后 |
@@ -904,13 +904,14 @@ git push -u origin feat/map-engine
 - 2026-10-27 弱网：Mac TCP 代理注入 600 ms 延迟；再注入 300 ms + 20% 连接丢弃，Guest 修改最终到达 Host。详见 [弱网记录](m3/lan/weak-network/README.md)。
 - 2026-10-27 tombstone：删除 Stop/Day 写入 `Trip.tombstones`，合并/加载时过滤；导入带墓碑的旧 Stop 验证被过滤。详见 [tombstone 记录](m3/lan/tombstones/README.md)。
 - 2026-10-27 变更历史 UI：同行页接入 `/history`，显示版本/clientId/baseVersion/时间；这是审计层，不是操作日志或 delta。详见 [变更历史记录](m3/lan/history/README.md)。
+- 2026-10-27 presence：`/hello` 增加 editing，成员列表显示当前天/地点；Host + 浏览器 Guest 验证通过。详见 [presence 记录](m3/lan/presence/README.md)。
 
 ### 下一步
 
 以下按优先级排列。**通信部分仍是最高优先级：在真机双机验收之前，不继续扩展与通信无关的 UI。**
 
 1. **局域网验收（真机延后）**：已过双模拟器、3 客户端、冲突、断网、后台、锁屏、弱网（延迟+连接丢弃）；仍需补长时间断网、3 个 Android 同时写、真实无线链路。两台真机同 Wi-Fi 作为延后项，不作为当前阻塞。
-2. **M3.3b（部分完成）**：tombstone 与变更历史审计已加；完整操作日志 `rev/delta/op` 仍未做，需先决定是否值得为 2–6 人场景重写协议。
+2. **M3.3b（部分完成）**：tombstone、变更历史审计、presence 基础版已加；完整操作日志 `rev/delta/op` 仍未做。
 3. **安全最小集（完成当前范围）**：token 约 130 bit、`X-Yanlu-Room` 头、失败限速；AES-GCM 明确不做，TLS/指纹作为未来可选项。
 4. **离线导入导出兜底（部分完成）**：JSON 导出/导入已可用；`.yanlu` 文件、合并式导入、二维码/系统分享仍未做。
 5. **三城异常路线修正**：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06`；补齐离线 glyphs/POI 标签（§6 Phase 2 未完成项）。
