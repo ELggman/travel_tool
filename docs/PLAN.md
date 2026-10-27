@@ -744,7 +744,7 @@ travel_tool/
 | 房主离开提示 | **通过（双模拟器）**：Host 关闭房间约 6 秒后 Guest 显示“房主已离开”，本机数据保留；网络黑洞约 10–15 秒 |
 | 切后台/回前台 | **通过（双模拟器）**：Guest 按 Home 后 Host 改标题，Guest 回前台自动拉取 v3 |
 | 锁屏/解锁 | **通过（双模拟器）**：Guest 锁屏、Host 改标题、解锁后不误报房主离开，自动同步 v2 |
-| 3 客户端 | **通过（Android Host + Android Guest + 浏览器 Guest）**：成员 3 人，浏览器修改同步到两端，Guest 离开后 2 人 |
+| 3 客户端 | **通过（Android Host + Android Guest + 浏览器 Guest）**：成员 3 人，浏览器修改同步到两端，Guest 离开后 2 人；3 客户端同字段并发一成一冲突 |
 | 成员昵称 | **通过**：Host“房主Momo” + 浏览器 Guest“阿宁”，成员列表显示 `房主Momo · 阿宁` |
 | 离线修改重连后可合并 | **通过（模拟断网）**：移除 adb forward 模拟断网，Guest 本地编辑后恢复连接，自动重试并同步 v2 |
 | 房主离开不丢本地数据 | **部分**：Guest 保留本地副本；房主关闭房间后 Guest 轮询失败但不清空数据（未显式提示“房主已离开”） |
@@ -897,6 +897,7 @@ git push -u origin feat/map-engine
 - 2026-10-27 JSON 备份：同行页增加“导入 JSON 备份”，支持导出的 `{trip, exportedAt}` 与裸 Trip；网页文件输入导入验证通过。详见 [备份记录](backup/README.md)。
 - 2026-10-27 三客户端：Android Host + Android Guest + 浏览器 Guest，3 人在线，浏览器修改同步到两端，Guest 离开后回到 2 人。详见 [三客户端记录](m3/lan/three-client/README.md)。
 - 2026-10-27 成员昵称：新增“我的昵称”，用于 `/hello` 与成员列表；Host“房主Momo” + 浏览器 Guest“阿宁”验证通过。
+- 2026-10-27 3 客户端同字段并发：Android Guest 与浏览器 Guest 同时改标题，浏览器成功 v2，Android Guest 显示冲突并采用远端后收敛。详见 [三客户端记录](m3/lan/three-client/README.md)。
 
 ### 下一步
 

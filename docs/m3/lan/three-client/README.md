@@ -31,6 +31,16 @@ Android Host（emulator-5554，LanSyncServer）
 房主 · 同行者
 ```
 
+8. 3 客户端同字段并发：
+   - Android Guest 改标题“AGuest冲突”
+   - 浏览器 Guest 同时改“Browser冲突”
+   - 浏览器写入成功（v2）
+   - Android Guest 显示冲突 `trip.days[day-chongqing-1].title`
+   - Android Guest 点“采用远端”后标题为“Browser冲突”
+   - Host 最终标题也是“Browser冲突”
+
+![Android Guest 冲突](screenshots/android-guest-conflict.png)
+
 ## 覆盖
 
 - 3 个客户端同时轮询/心跳
@@ -42,7 +52,7 @@ Android Host（emulator-5554，LanSyncServer）
 
 - 不是 3 台 Android 真机；第三端是浏览器
 - 成员昵称已支持（2026-10-27）：可在加入房间前设置；已验证 Host“房主Momo” + 浏览器 Guest“阿宁”显示为 `房主Momo · 阿宁`
-- 未测 3 个客户端同时写同一字段
+- 3 个客户端同字段并发已验证：一个成功、一个冲突，人工选择后收敛
 - 未测弱网/丢包
 - 仍经 adb forward，不是真实 Wi-Fi
 
