@@ -1267,7 +1267,7 @@ function App() {
                   <div className="leg-row">
                     <span className="leg-line" />
                     <button className={`leg-pill ${leg?.mode ?? stop.transportToNext}`} onClick={() => updateStop(stop.id, { transportToNext: stop.transportToNext === 'walk' ? 'taxi' : 'walk' })}>
-                      <span>{leg?.mode === 'taxi' ? '打车' : '步行'}</span>
+                      <span>{leg?.mode === 'taxi' ? '打车 · 估算' : '步行'}{leg && !leg.ok ? ' · 粗略' : ''}</span>
                       <span>{leg ? `${formatKm(leg.distanceM)} · ${Math.round(leg.durationMin)} 分钟` : '计算中…'}</span>
                       <span className="swap">⇄</span>
                     </button>
@@ -1282,7 +1282,7 @@ function App() {
       {!stops.length && <div className="empty-state">这一天还没有地点。加一个开始吧。</div>}
 
       <button className="add-stop" onClick={() => setAddOpen(true)}><span>＋</span> 添加地点</button>
-      <p className="day-note">拖动地点右侧的手柄调整顺序；路线和时间会自动重算，并保存在本机。</p>
+      <p className="day-note">拖动地点右侧的手柄调整顺序；路线和时间会自动重算并保存在本机。路线来自本机路网，打车时间不含实时路况；算路失败时显示粗略估算。</p>
     </section>
   );
 
@@ -1488,7 +1488,7 @@ function App() {
               <span className="person-avatar self">你</span>
               <button className="person-invite" onClick={() => setNotice('协作邀请将在下一阶段接入')}>＋ 邀请</button>
             </div>
-            <p className="people-note">当前是手动快照同步：房主发布，同行拉取/推送。自动实时同步、权限和冲突合并还在 M3.1/M3.2。</p>
+            <p className="people-note">同一局域网内自动同步；同字段冲突会提示选择，不会静默覆盖。房主需要保持 App 打开。</p>
           </section>
 
           <section className="people-card">
