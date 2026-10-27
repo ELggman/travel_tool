@@ -1309,7 +1309,7 @@ function App() {
                 <div className="lan-join">
                   <span>{lanSupported() ? '或加入房间' : '输入房主地址加入'}</span>
                   <input value={lanGuest.ip} onChange={(e) => setLanGuest((prev) => ({ ...prev, ip: e.target.value }))} placeholder="房主 IP，如 192.168.1.10" />
-                  <input value={lanGuest.room} onChange={(e) => setLanGuest((prev) => ({ ...prev, room: e.target.value }))} placeholder="6 位房间码" />
+                  <input value={lanGuest.room} onChange={(e) => setLanGuest((prev) => ({ ...prev, room: e.target.value.toUpperCase().slice(0, 26) }))} placeholder="26 位房间码" />
                   <button className="text-btn" disabled={lanBusy} onClick={joinRoom}>加入并拉取</button>
                 </div>
               </>

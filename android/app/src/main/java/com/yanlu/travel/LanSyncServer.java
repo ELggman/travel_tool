@@ -36,6 +36,7 @@ public final class LanSyncServer {
     private volatile boolean running;
     private ServerSocket serverSocket;
     private Thread thread;
+    private static final char[] ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
     private String room = "";
     private volatile String snapshot = "";
     private volatile int version = 0;
@@ -55,7 +56,7 @@ public final class LanSyncServer {
 
     public synchronized String start() throws IOException {
         if (running) return infoJson();
-        room = String.format("%06d", random.nextInt(1_000_000));
+        room = newRoomCode();
         snapshot = "";
         version = 0;
         members.clear();
@@ -77,6 +78,12 @@ public final class LanSyncServer {
         } catch (IOException ignored) {
         }
         serverSocket = null;
+    }
+
+    private String newRoomCode() {
+        StringBuilder code = new StringBuilder(26);
+        for (int i = 0; i < 26; i++) code.append(ROOM_ALPHABET[random.nextInt(ROOM_ALPHABET.length)]);
+        return code.toString();
     }
 
     public String getInfo() {
@@ -149,14 +156,20 @@ public final class LanSyncServer {
             String method = parts[0];
             String path = parts[1];
             int contentLength = 0;
+            String headerRoom = null;
             String line;
             while ((line = reader.readLine()) != null && !line.isEmpty()) {
                 int colon = line.indexOf(':');
-                if (colon > 0 && line.substring(0, colon).toLowerCase().equals("content-length")) {
+                if (colon <= 0) continue;
+                String headerName = line.substring(0, colon).trim().toLowerCase();
+                String headerValue = line.substring(colon + 1).trim();
+                if (headerName.equals("content-length")) {
                     try {
-                        contentLength = Integer.parseInt(line.substring(colon + 1).trim());
+                        contentLength = Integer.parseInt(headerValue);
                     } catch (NumberFormatException ignored) {
                     }
+                } else if (headerName.equals("x-yanlu-room")) {
+                    headerRoom = headerValue;
                 }
             }
             if (method.equals("OPTIONS")) {
@@ -174,7 +187,7 @@ public final class LanSyncServer {
                     params.put(key, value);
                 }
             }
-            String requestedRoom = params.get("room");
+            String requestedRoom = headerRoom;
             if (requestedRoom == null || !requestedRoom.equals(room)) {
                 send(socket, 403, "{\"ok\":false,\"error\":\"room mismatch\"}");
                 return;
@@ -285,7 +298,7 @@ public final class LanSyncServer {
                 + "Content-Length: " + bytes.length + "\r\n"
                 + "Access-Control-Allow-Origin: *\r\n"
                 + "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n"
-                + "Access-Control-Allow-Headers: Content-Type\r\n"
+                + "Access-Control-Allow-Headers: Content-Type, X-Yanlu-Room\r\n"
                 + "Connection: close\r\n\r\n";
         OutputStream out = socket.getOutputStream();
         out.write(headers.getBytes(StandardCharsets.US_ASCII));
