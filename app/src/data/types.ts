@@ -70,6 +70,7 @@ export type Trip = {
   startDate: string;
   days: Day[];
   activeDayId: string;
+  tombstones?: Record<string, number>;
 };
 
 export type Theme = {

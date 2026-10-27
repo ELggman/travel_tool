@@ -55,7 +55,14 @@ function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
   if (!raw) return fallback;
   const legacy = raw as Trip & { day?: Day };
   const rawDays = Array.isArray(raw.days) ? raw.days : legacy.day ? [legacy.day] : [];
-  const days = rawDays.length ? rawDays.map((day, i) => normalizeDay(day, i, city)) : fallback.days;
+  const normalized = rawDays.length ? rawDays.map((day, i) => normalizeDay(day, i, city)) : fallback.days;
+  const filtered = normalized
+    .filter((day) => !raw.tombstones?.[`day:${day.id}`])
+    .map((day) => ({
+      ...day,
+      stops: day.stops.filter((stop) => !raw.tombstones?.[`stop:${stop.id}`]),
+    }));
+  const days = filtered.length ? filtered : fallback.days;
   const activeDayId = days.some((day) => day.id === raw.activeDayId) ? raw.activeDayId : days[0].id;
   const startDate = raw.startDate || days[0].date || new Date().toISOString().slice(0, 10);
   return {
@@ -65,6 +72,7 @@ function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
     startDate,
     days: days.map((day, i) => ({ ...day, date: addDays(startDate, i) })),
     activeDayId,
+    tombstones: raw.tombstones,
   };
 }
 
@@ -507,9 +515,12 @@ function App() {
       const activeDayId = currentTrip.activeDayId === dayId
         ? days[Math.max(0, index - 1)].id
         : currentTrip.activeDayId;
+      const removed = currentTrip.days[index];
+      const tombstones = { ...currentTrip.tombstones, [`day:${dayId}`]: Date.now() };
+      for (const stop of removed.stops) tombstones[`stop:${stop.id}`] = Date.now();
       return {
         ...prev,
-        trips: { ...prev.trips, [prev.activeCity]: { ...currentTrip, days, activeDayId } },
+        trips: { ...prev.trips, [prev.activeCity]: { ...currentTrip, days, activeDayId, tombstones } },
       };
     });
     setActiveStopId(null);
@@ -529,7 +540,23 @@ function App() {
   };
 
   const deleteStop = (id: string) => {
-    updateStops((current) => current.filter((stop) => stop.id !== id));
+    setState((prev) => {
+      const currentTrip = prev.trips[prev.activeCity];
+      return {
+        ...prev,
+        trips: {
+          ...prev.trips,
+          [prev.activeCity]: {
+            ...currentTrip,
+            days: currentTrip.days.map((day) => ({
+              ...day,
+              stops: day.stops.filter((stop) => stop.id !== id),
+            })),
+            tombstones: { ...currentTrip.tombstones, [`stop:${id}`]: Date.now() },
+          },
+        },
+      };
+    });
     setStopOpenId(null);
     setActiveStopId(null);
   };
