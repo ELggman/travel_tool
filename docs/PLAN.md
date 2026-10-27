@@ -629,7 +629,7 @@ travel_tool/
 - 距离/耗时 `source`：**未满足**（见上表 Leg）。
 - 删除 tombstone：**未满足**（见 §3.4.2）。
 - 预订结构化：**部分满足**（交通与住宿有结构字段；`Stop.booking` 仍是自由文本）。
-- 地图包版本/哈希入库：**未满足**（见上表 MapPack）。
+- 地图包版本/哈希入库：**部分满足**（下载时校验 sidecar SHA-256；未入本地数据库）。
 - 包与路网版本匹配：**未满足**（运行时无版本号校验）。
 
 约束：
@@ -707,7 +707,7 @@ travel_tool/
 
 ### Phase 4 · 离线地图包与离线重算（约 3–5 周，核心）
 
-> **状态：** **大部分完成，分发部分未完成。** 已完成：重庆主城标准包 + z16 精细叠加、武汉/贵阳核心包、POI 索引随包、zip 归档下载、CacheStorage 离线读取、断网算路、删除释放。**未完成：** 静态 CDN/OSS/COS 接入（当前为本机 `pack_server.py`）、SHA-256 校验、断点续传/暂停、配额淘汰、版本更新、z17、真机飞行模式验收。
+> **状态：** **大部分完成，分发部分未完成。** 已完成：重庆主城标准包 + z16 精细叠加、武汉/贵阳核心包、POI 索引随包、zip 归档下载、CacheStorage 离线读取、断网算路、删除释放。**未完成：** 静态 CDN/OSS/COS 接入（当前为本机 `pack_server.py`）、断点续传/暂停、配额淘汰、版本更新、z17、真机飞行模式验收。**SHA-256 校验已补（2026-10-27）**，见 [pack SHA 记录](m2/pack-sha/README.md)。
 
 - 按城市生成 `basemap.pmtiles`、路网图、POI 索引、glyphs/sprites、manifest；首批重庆/武汉/贵阳核心区；
 - 静态 CDN/对象存储：版本化路径、CORS、Range、SHA-256 校验、断点续传；
@@ -904,6 +904,7 @@ git push -u origin feat/map-engine
 - 2026-10-27 3 客户端同字段并发：Android Guest 与浏览器 Guest 同时改标题，浏览器成功 v2，Android Guest 显示冲突并采用远端后收敛。详见 [三客户端记录](m3/lan/three-client/README.md)。
 - 2026-10-27 弱网：Mac TCP 代理注入 600 ms 延迟；再注入 300 ms + 20% 连接丢弃，Guest 修改最终到达 Host。详见 [弱网记录](m3/lan/weak-network/README.md)。
 - 2026-10-27 长断网：移除 adb forward 60 秒，Guest 改标题+地点类别，恢复后 Host 两处均收到。详见 [长断网记录](m3/lan/long-disconnect/README.md)。
+- 2026-10-27 包校验：下载 zip 后校验 `.sha256` sidecar 再解压；重庆包 sidecar 与 zip 哈希验证一致。详见 [pack SHA 记录](m2/pack-sha/README.md)。
 - 2026-10-27 tombstone：删除 Stop/Day 写入 `Trip.tombstones`，合并/加载时过滤；导入带墓碑的旧 Stop 验证被过滤。详见 [tombstone 记录](m3/lan/tombstones/README.md)。
 - 2026-10-27 变更历史 UI：同行页接入 `/history`，显示版本/clientId/baseVersion/时间；这是审计层，不是操作日志或 delta。详见 [变更历史记录](m3/lan/history/README.md)。
 - 2026-10-27 presence：`/hello` 增加 editing，成员列表显示当前天/地点；Host + 浏览器 Guest 验证通过。详见 [presence 记录](m3/lan/presence/README.md)。

@@ -49,6 +49,33 @@ export async function deleteCachedPack(city: string, variant: PackVariant = 'sta
   await caches.delete(cacheName(city, variant));
 }
 
+async function sha256Hex(data: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyArchiveHash(base: string, archive: string, data: Uint8Array): Promise<void> {
+  if (!crypto.subtle) throw new Error('当前环境不支持 SHA-256 校验');
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 5000);
+  let response: Response;
+  try {
+    response = await fetch(`${base}/packs/${archive}.yanlu-pack.zip.sha256`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch {
+    throw new Error('无法读取地图包 SHA-256 校验文件');
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (!response.ok) throw new Error(`地图包缺少 SHA-256 校验文件 HTTP ${response.status}`);
+  const expected = (await response.text()).trim().split(/\s+/)[0]?.toLowerCase();
+  if (!expected || !/^[0-9a-f]{64}$/.test(expected)) throw new Error('地图包 SHA-256 校验文件格式不正确');
+  const actual = await sha256Hex(new Uint8Array(data).buffer);
+  if (actual !== expected) throw new Error('地图包 SHA-256 校验失败，文件可能损坏或被篡改');
+}
+
 export async function downloadPackArchive(
   city: string,
   onProgress: DownloadProgress,
@@ -97,6 +124,7 @@ export async function downloadPackArchive(
     offset += chunk.byteLength;
   }
 
+  await verifyArchiveHash(base, archive, buffer);
   onProgress(60);
   const files = unzipSync(buffer);
   const entries = Object.entries(files).filter(([name]) => !name.endsWith('/'));
