@@ -18,6 +18,8 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Collections;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +40,8 @@ public final class LanSyncServer {
     private volatile String snapshot = "";
     private volatile int version = 0;
     private final Map<String, Member> members = new ConcurrentHashMap<>();
+    private final Map<String, Integer> clientSeq = new ConcurrentHashMap<>();
+    private final Deque<String> history = new ArrayDeque<>();
 
     private static final class Member {
         final String name;
@@ -84,13 +88,33 @@ public final class LanSyncServer {
     }
 
     public synchronized String publishAt(String tripJson, int baseVersion) {
+        return publishAt(tripJson, baseVersion, "", -1);
+    }
+
+    public synchronized String publishAt(String tripJson, int baseVersion, String clientId, int clientSeqValue) {
         if (!running) return "{\"ok\":false,\"error\":\"host not running\"}";
+        if (clientId != null && !clientId.isEmpty() && clientSeqValue > 0) {
+            Integer last = clientSeq.get(clientId);
+            if (last != null && clientSeqValue <= last) {
+                return "{\"ok\":true,\"duplicate\":true,\"version\":" + version + "}";
+            }
+        }
         if (baseVersion >= 0 && baseVersion != version) {
             return "{\"ok\":false,\"error\":\"version conflict\",\"version\":" + version + "}";
         }
         if (tripJson == null) tripJson = "";
         snapshot = tripJson;
         version++;
+        if (clientId != null && !clientId.isEmpty() && clientSeqValue > 0) {
+            clientSeq.put(clientId, clientSeqValue);
+        }
+        synchronized (history) {
+            history.addFirst("{\"version\":" + version + ",\"clientId\":\"" + escape(clientId == null ? "" : clientId)
+                    + "\",\"seq\":" + clientSeqValue + ",\"baseVersion\":" + baseVersion
+                    + ",\"bytes\":" + tripJson.getBytes(StandardCharsets.UTF_8).length
+                    + ",\"at\":" + System.currentTimeMillis() + "}");
+            while (history.size() > 30) history.removeLast();
+        }
         return "{\"ok\":true,\"version\":" + version + "}";
     }
 
@@ -174,6 +198,12 @@ public final class LanSyncServer {
                 send(socket, 200, membersJson());
                 return;
             }
+            if (cleanPath.equals("/history") && method.equals("GET")) {
+                String body;
+                synchronized (history) { body = "{\"ok\":true,\"history\":[" + String.join(",", history) + "]}"; }
+                send(socket, 200, body);
+                return;
+            }
             if (cleanPath.equals("/leave") && method.equals("POST")) {
                 String id = params.get("id");
                 if (id != null) members.remove(id);
@@ -198,12 +228,16 @@ public final class LanSyncServer {
                     return;
                 }
                 int baseVersion = -1;
+                int seqValue = -1;
                 try {
                     String rawBase = params.get("baseVersion");
                     if (rawBase != null) baseVersion = Integer.parseInt(rawBase);
+                    String rawSeq = params.get("seq");
+                    if (rawSeq != null) seqValue = Integer.parseInt(rawSeq);
                 } catch (NumberFormatException ignored) {
                 }
-                String result = publishAt(json, baseVersion);
+                String clientId = params.get("clientId");
+                String result = publishAt(json, baseVersion, clientId, seqValue);
                 send(socket, result.contains("\"ok\":false") ? 409 : 200, result);
                 return;
             }

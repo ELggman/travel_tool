@@ -13,6 +13,7 @@ type LanBridge = {
   info(): string;
   publish(json: string): string;
   publishAt?(json: string, baseVersion: number): string;
+  publishAtSeq?(json: string, baseVersion: number, clientId: string, seq: number): string;
 };
 
 declare global {
@@ -46,11 +47,19 @@ export function stopLanHost(): void {
   bridge().stop();
 }
 
-export function publishLanSnapshot(info: LanInfo, trip: unknown, baseVersion?: number): { ok: boolean; version?: number; error?: string } {
+export function publishLanSnapshot(
+  info: LanInfo,
+  trip: unknown,
+  baseVersion?: number,
+  clientId?: string,
+  seq?: number,
+): { ok: boolean; version?: number; duplicate?: boolean; error?: string } {
   const payload = JSON.stringify(trip);
-  const raw = baseVersion !== undefined && baseVersion >= 0 && bridge().publishAt
-    ? bridge().publishAt!(payload, baseVersion)
-    : bridge().publish(payload);
+  const raw = baseVersion !== undefined && baseVersion >= 0 && clientId && seq !== undefined && bridge().publishAtSeq
+    ? bridge().publishAtSeq!(payload, baseVersion, clientId, seq)
+    : baseVersion !== undefined && baseVersion >= 0 && bridge().publishAt
+      ? bridge().publishAt!(payload, baseVersion)
+      : bridge().publish(payload);
   return JSON.parse(raw);
 }
 
@@ -61,9 +70,16 @@ export async function fetchLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room
   return await response.json();
 }
 
-export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>, trip: unknown, baseVersion?: number): Promise<{ ok: boolean; version?: number; error?: string }> {
+export async function pushLanSnapshot(
+  info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
+  trip: unknown,
+  baseVersion?: number,
+  clientId?: string,
+  seq?: number,
+): Promise<{ ok: boolean; version?: number; duplicate?: boolean; error?: string }> {
   const suffix = baseVersion === undefined ? '' : `&baseVersion=${baseVersion}`;
-  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}${suffix}`;
+  const clientSuffix = clientId && seq !== undefined ? `&clientId=${encodeURIComponent(clientId)}&seq=${seq}` : '';
+  const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}${suffix}${clientSuffix}`;
   const response = await request(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

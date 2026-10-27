@@ -112,6 +112,11 @@ public class MainActivity extends Activity {
         public String publishAt(String tripJson, int baseVersion) {
             return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.publishAt(tripJson, baseVersion);
         }
+
+        @JavascriptInterface
+        public String publishAtSeq(String tripJson, int baseVersion, String clientId, int seq) {
+            return lanServer == null ? "{\"ok\":false,\"error\":\"not started\"}" : lanServer.publishAt(tripJson, baseVersion, clientId, seq);
+        }
     }
 
     @Override

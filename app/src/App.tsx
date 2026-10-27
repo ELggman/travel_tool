@@ -158,6 +158,8 @@ function App() {
   const lanInfoRef = useRef<LanInfo | null>(null);
   const lanConflictRef = useRef<{ trip: Trip; version: number; conflicts: string[] } | null>(null);
   const lanBaseTripRef = useRef<Trip | null>(null);
+  const lanSeqRef = useRef(0);
+  const lanFailuresRef = useRef(0);
   const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
@@ -694,6 +696,8 @@ function App() {
       setLanMembers([]);
       setLanConflict(null);
       lanVersionRef.current = 0;
+      lanSeqRef.current = 0;
+      lanFailuresRef.current = 0;
       lanJsonRef.current = '';
       lanBaseTripRef.current = tripRef.current;
       setLanStatus(`房间 ${info.room} 已开启`);
@@ -711,6 +715,7 @@ function App() {
     setLanMembers([]);
     setLanConflict(null);
     lanVersionRef.current = 0;
+    lanSeqRef.current = 0;
     lanJsonRef.current = '';
     lanBaseTripRef.current = null;
     setLanStatus('房间已关闭');
@@ -719,7 +724,7 @@ function App() {
   const publishHost = () => {
     if (!lanInfo) return;
     try {
-      const result = publishLanSnapshot(lanInfo, trip, lanVersionRef.current);
+      const result = publishLanSnapshot(lanInfo, trip, lanVersionRef.current, lanDeviceIdRef.current, ++lanSeqRef.current);
       if (!result.ok) throw new Error(result.error === 'version conflict' ? '远端已更新，请先拉取/合并' : result.error ?? '发布失败');
       const v = result.version ?? lanInfo.version;
       lanVersionRef.current = v;
@@ -767,6 +772,8 @@ function App() {
       setLanMembers([]);
       setLanConflict(null);
       lanVersionRef.current = snap.version;
+      lanSeqRef.current = 0;
+      lanFailuresRef.current = 0;
       lanJsonRef.current = joined ? JSON.stringify(joined) : '';
       lanBaseTripRef.current = joined ?? tripRef.current;
       setLanStatus(`已加入房间 ${room} · v${snap.version}`);
@@ -781,7 +788,7 @@ function App() {
     if (!lanInfo) return;
     setLanBusy(true);
     try {
-      const result = await pushLanSnapshot(lanInfo, trip, lanVersionRef.current);
+      const result = await pushLanSnapshot(lanInfo, trip, lanVersionRef.current, lanDeviceIdRef.current, ++lanSeqRef.current);
       if (!result.ok) throw new Error(result.error === 'version conflict' ? '远端已更新，请先拉取/合并' : result.error ?? '推送失败');
       const v = result.version ?? lanInfo.version;
       lanVersionRef.current = v;
@@ -806,9 +813,10 @@ function App() {
       const info = lanInfoRef.current;
       if (!info) return;
       try {
+        const seq = ++lanSeqRef.current;
         const result = lanRole === 'host'
-          ? publishLanSnapshot(info, tripRef.current, lanVersionRef.current)
-          : await pushLanSnapshot(info, tripRef.current, lanVersionRef.current);
+          ? publishLanSnapshot(info, tripRef.current, lanVersionRef.current, lanDeviceIdRef.current, seq)
+          : await pushLanSnapshot(info, tripRef.current, lanVersionRef.current, lanDeviceIdRef.current, seq);
         if (!result.ok) {
           setLanStatus(`同步冲突 · 服务端 v${result.version ?? '?'}，等待合并`);
           return;
@@ -820,7 +828,7 @@ function App() {
         setLanInfo((prev) => (prev ? { ...prev, version: v } : prev));
         setLanStatus(`自动同步 · v${v}`);
       } catch {
-        // The room may have been closed; manual controls still expose details.
+        setLanStatus('自动同步失败，等待重试');
       }
     }, 900);
     return () => window.clearTimeout(timer);
@@ -872,10 +880,12 @@ function App() {
           lanJsonRef.current = remoteJson;
           lanBaseTripRef.current = remoteTrip;
         }
+        lanFailuresRef.current = 0;
         setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
         setLanStatus(`已自动同步 · v${snap.version}`);
       } catch {
-        // Poll again; no modal errors while the Wi-Fi is briefly unavailable.
+        lanFailuresRef.current += 1;
+        if (lanFailuresRef.current >= 2) setLanStatus('连接中断，重试中…');
       } finally {
         inFlight = false;
       }
