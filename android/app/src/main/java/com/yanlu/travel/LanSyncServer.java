@@ -167,6 +167,12 @@ public final class LanSyncServer {
                 send(socket, 200, membersJson());
                 return;
             }
+            if (cleanPath.equals("/leave") && method.equals("POST")) {
+                String id = params.get("id");
+                if (id != null) members.remove(id);
+                send(socket, 200, membersJson());
+                return;
+            }
             if (cleanPath.equals("/snapshot") && method.equals("GET")) {
                 String body = "{\"ok\":true,\"version\":" + version + ",\"trip\":"
                         + (snapshot.isEmpty() ? "null" : snapshot) + "}";

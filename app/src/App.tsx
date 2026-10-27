@@ -16,7 +16,7 @@ import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
-import { fetchLanSnapshot, lanSupported, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
+import { fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -140,6 +140,7 @@ function App() {
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [lanMembers, setLanMembers] = useState<string[]>([]);
+  const [lanConflict, setLanConflict] = useState<{ trip: Trip; version: number } | null>(null);
   const lanVersionRef = useRef(0);
   const lanJsonRef = useRef('');
   const lanApplyingRef = useRef(false);
@@ -154,12 +155,14 @@ function App() {
     lanDeviceIdRef.current = id;
   }
   const lanInfoRef = useRef<LanInfo | null>(null);
+  const lanConflictRef = useRef<{ trip: Trip; version: number } | null>(null);
   const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
   lanInfoRef.current = lanInfo;
+  lanConflictRef.current = lanConflict;
   tripRef.current = trip;
   const activeDay = trip.days.find((day) => day.id === trip.activeDayId) ?? trip.days[0];
   const activeDayIndex = trip.days.findIndex((day) => day.id === activeDay.id);
@@ -683,6 +686,7 @@ function App() {
       setLanInfo(info);
       setLanRole('host');
       setLanMembers([]);
+      setLanConflict(null);
       lanVersionRef.current = 0;
       lanJsonRef.current = '';
       setLanStatus(`房间 ${info.room} 已开启`);
@@ -698,6 +702,7 @@ function App() {
     setLanInfo(null);
     setLanRole(null);
     setLanMembers([]);
+    setLanConflict(null);
     lanVersionRef.current = 0;
     lanJsonRef.current = '';
     setLanStatus('房间已关闭');
@@ -751,6 +756,7 @@ function App() {
       setLanInfo({ ip, port, room, version: snap.version });
       setLanRole('guest');
       setLanMembers([]);
+      setLanConflict(null);
       lanVersionRef.current = snap.version;
       lanJsonRef.current = snap.trip ? JSON.stringify(snap.trip) : '';
       setLanStatus(`已加入房间 ${room} · v${snap.version}`);
@@ -781,7 +787,7 @@ function App() {
   // Host and guest both keep the room snapshot warm. The host publishes local
   // edits; a guest publishes its local edits too. Version guards stop echoes.
   useEffect(() => {
-    if (!lanInfo || !lanRole) return;
+    if (!lanInfo || !lanRole || lanConflict) return;
     const json = JSON.stringify(trip);
     if (json === lanJsonRef.current) return;
     const timer = window.setTimeout(async () => {
@@ -802,7 +808,7 @@ function App() {
     }, 900);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
+  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole, lanConflict]);
 
   useEffect(() => {
     if (!lanInfo || !lanRole) return;
@@ -816,11 +822,20 @@ function App() {
       try {
         const snap = await fetchLanSnapshot(info);
         if (cancelled || snap.version <= lanVersionRef.current || !snap.trip) return;
-        lanVersionRef.current = snap.version;
+        const localJson = JSON.stringify(tripRef.current);
         const remoteJson = JSON.stringify(snap.trip);
-        if (remoteJson !== JSON.stringify(tripRef.current)) {
-          applyRemoteTrip(snap.trip as Trip);
+        const dirty = localJson !== lanJsonRef.current;
+        if (dirty && remoteJson !== localJson) {
+          const currentConflict = lanConflictRef.current;
+          if (!currentConflict || snap.version > currentConflict.version) {
+            setLanConflict({ trip: snap.trip as Trip, version: snap.version });
+            lanConflictRef.current = { trip: snap.trip as Trip, version: snap.version };
+            setLanStatus(`检测到远端修改 v${snap.version}，请选择保留哪一边`);
+          }
+          return;
         }
+        lanVersionRef.current = snap.version;
+        if (remoteJson !== localJson) applyRemoteTrip(snap.trip as Trip);
         lanJsonRef.current = remoteJson;
         setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
         setLanStatus(`已自动同步 · v${snap.version}`);
@@ -855,6 +870,32 @@ function App() {
     return () => { cancelled = true; window.clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
+
+  const acceptRemoteConflict = () => {
+    if (!lanConflict) return;
+    lanVersionRef.current = lanConflict.version;
+    lanJsonRef.current = JSON.stringify(lanConflict.trip);
+    applyRemoteTrip(lanConflict.trip);
+    setLanConflict(null);
+    setLanStatus(`已采用远端版本 v${lanConflict.version}`);
+  };
+
+  const keepLocalConflict = () => {
+    setLanConflict(null);
+    setLanStatus('已保留本机版本，准备推送');
+  };
+
+  const leaveRoom = async () => {
+    const info = lanInfoRef.current;
+    if (info) {
+      try { await leaveLan(info, lanDeviceIdRef.current); } catch { /* TTL will clean up */ }
+    }
+    setLanInfo(null);
+    setLanRole(null);
+    setLanMembers([]);
+    setLanConflict(null);
+    setLanStatus('已离开房间');
+  };
 
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
@@ -1179,6 +1220,16 @@ function App() {
                   <div><span>在线</span><strong>{lanMembers.length || 1} 人</strong></div>
                 </div>
                 {lanMembers.length > 0 && <p className="lan-members">{lanMembers.join(' · ')}</p>}
+                {lanConflict && (
+                  <div className="lan-conflict">
+                    <strong>发现远端修改 v{lanConflict.version}</strong>
+                    <p>本机和远端都有未同步的修改，不会自动覆盖。</p>
+                    <div className="people-actions">
+                      <button className="primary" onClick={acceptRemoteConflict}>采用远端</button>
+                      <button className="text-btn" onClick={keepLocalConflict}>保留本机并推送</button>
+                    </div>
+                  </div>
+                )}
                 <div className="people-actions">
                   {lanRole === 'host' ? (
                     <>
@@ -1190,7 +1241,7 @@ function App() {
                     <>
                       <button className="primary" disabled={lanBusy} onClick={pullHost}>拉取最新</button>
                       <button className="text-btn" disabled={lanBusy} onClick={pushGuest}>推送本机行程</button>
-                      <button className="text-btn" onClick={() => { setLanInfo(null); setLanRole(null); setLanMembers([]); setLanStatus('已离开房间'); }}>离开</button>
+                      <button className="text-btn" onClick={leaveRoom}>离开</button>
                     </>
                   )}
                 </div>

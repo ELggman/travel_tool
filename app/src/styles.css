@@ -465,3 +465,6 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .lan-status { margin: 9px 0 0; font-size: 8px; color: var(--accent); }
 .lan-room { grid-template-columns: 1.3fr 1fr .7fr .7fr; }
 .lan-members { margin: -4px 0 8px; font-size: 8px; color: var(--muted); }
+.lan-conflict { margin: 10px 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.lan-conflict strong { font-size: 10px; color: var(--accent); }
+.lan-conflict p { margin: 4px 0 0; font-size: 8px; color: var(--muted); line-height: 1.5; }

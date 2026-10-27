@@ -27,6 +27,16 @@ function bridge(): LanBridge {
   return window.YanluLan;
 }
 
+async function request(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 3500);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export function startLanHost(): LanInfo {
   return JSON.parse(bridge().start()) as LanInfo;
 }
@@ -41,14 +51,14 @@ export function publishLanSnapshot(info: LanInfo, trip: unknown): { ok: boolean;
 
 export async function fetchLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<{ ok: boolean; version: number; trip: unknown }> {
   const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}`;
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await request(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 }
 
 export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'>, trip: unknown): Promise<{ ok: boolean; version?: number }> {
   const url = `http://${info.ip}:${info.port}/snapshot?room=${encodeURIComponent(info.room)}`;
-  const response = await fetch(url, {
+  const response = await request(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(trip),
@@ -59,7 +69,7 @@ export async function pushLanSnapshot(info: Pick<LanInfo, 'ip' | 'port' | 'room'
 }
 
 export async function probeLan(info: Pick<LanInfo, 'ip' | 'port' | 'room'>): Promise<LanInfo> {
-  const response = await fetch(`http://${info.ip}:${info.port}/info?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
+  const response = await request(`http://${info.ip}:${info.port}/info?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 }
@@ -70,7 +80,7 @@ export async function pingLan(
   name: string,
 ): Promise<{ ok: boolean; members: string[] }> {
   const url = `http://${info.ip}:${info.port}/hello?room=${encodeURIComponent(info.room)}&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`;
-  const response = await fetch(url, { method: 'POST', cache: 'no-store' });
+  const response = await request(url, { method: 'POST', cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 }
@@ -78,8 +88,18 @@ export async function pingLan(
 export async function fetchLanMembers(
   info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
 ): Promise<string[]> {
-  const response = await fetch(`http://${info.ip}:${info.port}/members?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
+  const response = await request(`http://${info.ip}:${info.port}/members?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   return Array.isArray(data.members) ? data.members : [];
+}
+
+export async function leaveLan(
+  info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
+  id: string,
+): Promise<{ ok: boolean; members: string[] }> {
+  const url = `http://${info.ip}:${info.port}/leave?room=${encodeURIComponent(info.room)}&id=${encodeURIComponent(id)}`;
+  const response = await request(url, { method: 'POST', cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
 }
