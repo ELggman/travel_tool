@@ -463,3 +463,5 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .lan-join > span { font-size: 7px; color: var(--muted); }
 .lan-join input { flex: 1 1 110px; min-width: 0; border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 7px; background: var(--paper); color: var(--ink); font-size: 9px; padding: 6px; }
 .lan-status { margin: 9px 0 0; font-size: 8px; color: var(--accent); }
+.lan-room { grid-template-columns: 1.3fr 1fr .7fr .7fr; }
+.lan-members { margin: -4px 0 8px; font-size: 8px; color: var(--muted); }

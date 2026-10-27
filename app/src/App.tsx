@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core';
@@ -16,7 +16,7 @@ import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
-import { fetchLanSnapshot, lanSupported, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
+import { fetchLanSnapshot, lanSupported, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
 type Persisted = {
@@ -139,10 +139,28 @@ function App() {
   const [lanStatus, setLanStatus] = useState('');
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
+  const [lanMembers, setLanMembers] = useState<string[]>([]);
+  const lanVersionRef = useRef(0);
+  const lanJsonRef = useRef('');
+  const lanApplyingRef = useRef(false);
+  const lanDeviceIdRef = useRef('');
+  if (!lanDeviceIdRef.current) {
+    const key = 'yanlu.lan.device';
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = `dev-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(key, id);
+    }
+    lanDeviceIdRef.current = id;
+  }
+  const lanInfoRef = useRef<LanInfo | null>(null);
+  const tripRef = useRef<Trip | null>(null);
   const [focusFine, setFocusFine] = useState(0);
 
   const activeCity = state.activeCity;
   const trip = state.trips[activeCity];
+  lanInfoRef.current = lanInfo;
+  tripRef.current = trip;
   const activeDay = trip.days.find((day) => day.id === trip.activeDayId) ?? trip.days[0];
   const activeDayIndex = trip.days.findIndex((day) => day.id === activeDay.id);
   const dayCity = activeDay.cityId && state.downloaded.includes(activeDay.cityId) ? activeDay.cityId : activeCity;
@@ -645,12 +663,15 @@ function App() {
     if (!raw || !Array.isArray(raw.days) || !raw.days.length) return;
     const city = availableCities.includes(raw.cityId) ? raw.cityId : activeCity;
     const next = normalizeTrip(raw, city);
+    lanApplyingRef.current = true;
+    lanJsonRef.current = JSON.stringify(next);
     setState((prev) => ({
       ...prev,
       activeCity: city,
       trips: { ...prev.trips, [city]: next },
     }));
     setNotice('已接收同行设备的行程');
+    window.setTimeout(() => { lanApplyingRef.current = false; }, 60);
   };
 
   const startRoom = async () => {
@@ -661,6 +682,9 @@ function App() {
       if (!info.ok) throw new Error(info.error ?? '启动失败');
       setLanInfo(info);
       setLanRole('host');
+      setLanMembers([]);
+      lanVersionRef.current = 0;
+      lanJsonRef.current = '';
       setLanStatus(`房间 ${info.room} 已开启`);
     } catch (err) {
       setLanStatus(`开启失败：${err instanceof Error ? err.message : String(err)}`);
@@ -673,6 +697,9 @@ function App() {
     if (lanSupported()) stopLanHost();
     setLanInfo(null);
     setLanRole(null);
+    setLanMembers([]);
+    lanVersionRef.current = 0;
+    lanJsonRef.current = '';
     setLanStatus('房间已关闭');
   };
 
@@ -681,8 +708,11 @@ function App() {
     try {
       const result = publishLanSnapshot(lanInfo, trip);
       if (!result.ok) throw new Error(result.error ?? '发布失败');
-      setLanInfo({ ...lanInfo, version: result.version ?? lanInfo.version });
-      setLanStatus(`已发布当前行程 · v${result.version ?? ''}`);
+      const v = result.version ?? lanInfo.version;
+      lanVersionRef.current = v;
+      lanJsonRef.current = JSON.stringify(trip);
+      setLanInfo({ ...lanInfo, version: v });
+      setLanStatus(`已发布当前行程 · v${v}`);
     } catch (err) {
       setLanStatus(`发布失败：${err instanceof Error ? err.message : String(err)}`);
     }
@@ -716,6 +746,9 @@ function App() {
       if (snap.trip) applyRemoteTrip(snap.trip as Trip);
       setLanInfo({ ip, port, room, version: snap.version });
       setLanRole('guest');
+      setLanMembers([]);
+      lanVersionRef.current = snap.version;
+      lanJsonRef.current = snap.trip ? JSON.stringify(snap.trip) : '';
       setLanStatus(`已加入房间 ${room} · v${snap.version}`);
     } catch (err) {
       setLanStatus(`加入失败：${err instanceof Error ? err.message : String(err)}`);
@@ -729,14 +762,90 @@ function App() {
     setLanBusy(true);
     try {
       const result = await pushLanSnapshot(lanInfo, trip);
-      setLanInfo({ ...lanInfo, version: result.version ?? lanInfo.version });
-      setLanStatus(`已推送本机行程 · v${result.version ?? ''}`);
+      const v = result.version ?? lanInfo.version;
+      lanVersionRef.current = v;
+      lanJsonRef.current = JSON.stringify(trip);
+      setLanInfo({ ...lanInfo, version: v });
+      setLanStatus(`已推送本机行程 · v${v}`);
     } catch (err) {
       setLanStatus(`推送失败：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLanBusy(false);
     }
   };
+
+  // Host and guest both keep the room snapshot warm. The host publishes local
+  // edits; a guest publishes its local edits too. Version guards stop echoes.
+  useEffect(() => {
+    if (!lanInfo || !lanRole) return;
+    const json = JSON.stringify(trip);
+    if (json === lanJsonRef.current) return;
+    const timer = window.setTimeout(async () => {
+      const info = lanInfoRef.current;
+      if (!info) return;
+      try {
+        const result = lanRole === 'host'
+          ? publishLanSnapshot(info, tripRef.current)
+          : await pushLanSnapshot(info, tripRef.current);
+        const v = result.version ?? info.version;
+        lanVersionRef.current = v;
+        lanJsonRef.current = json;
+        setLanInfo((prev) => (prev ? { ...prev, version: v } : prev));
+        setLanStatus(`自动同步 · v${v}`);
+      } catch {
+        // The room may have been closed; manual controls still expose details.
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip, lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
+
+  useEffect(() => {
+    if (!lanInfo || !lanRole) return;
+    let cancelled = false;
+    const tick = async () => {
+      const info = lanInfoRef.current;
+      if (!info || cancelled) return;
+      try {
+        const snap = await fetchLanSnapshot(info);
+        if (cancelled || snap.version <= lanVersionRef.current || !snap.trip) return;
+        lanVersionRef.current = snap.version;
+        const remoteJson = JSON.stringify(snap.trip);
+        if (remoteJson !== JSON.stringify(tripRef.current)) {
+          applyRemoteTrip(snap.trip as Trip);
+        }
+        lanJsonRef.current = remoteJson;
+        setLanInfo((prev) => (prev ? { ...prev, version: snap.version } : prev));
+        setLanStatus(`已自动同步 · v${snap.version}`);
+      } catch {
+        // Poll again; no modal errors while the Wi-Fi is briefly unavailable.
+      }
+    };
+    void tick();
+    const timer = window.setInterval(tick, 1500);
+    return () => { cancelled = true; window.clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
+
+  useEffect(() => {
+    if (!lanInfo || !lanRole) return;
+    let cancelled = false;
+    const name = lanRole === 'host' ? '房主' : '同行者';
+    const tick = async () => {
+      const info = lanInfoRef.current;
+      if (!info || cancelled) return;
+      try {
+        const result = await pingLan(info, lanDeviceIdRef.current, name);
+        if (!cancelled) setLanMembers(result.members);
+      } catch {
+        // presence is best-effort
+      }
+    };
+    void tick();
+    const timer = window.setInterval(tick, 3000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port, lanRole]);
 
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
@@ -1058,7 +1167,9 @@ function App() {
                   <div><span>地址</span><strong>{lanInfo.ip}:{lanInfo.port}</strong></div>
                   <div><span>房间码</span><strong>{lanInfo.room}</strong></div>
                   <div><span>版本</span><strong>v{lanInfo.version}</strong></div>
+                  <div><span>在线</span><strong>{lanMembers.length || 1} 人</strong></div>
                 </div>
+                {lanMembers.length > 0 && <p className="lan-members">{lanMembers.join(' · ')}</p>}
                 <div className="people-actions">
                   {lanRole === 'host' ? (
                     <>
@@ -1070,7 +1181,7 @@ function App() {
                     <>
                       <button className="primary" disabled={lanBusy} onClick={pullHost}>拉取最新</button>
                       <button className="text-btn" disabled={lanBusy} onClick={pushGuest}>推送本机行程</button>
-                      <button className="text-btn" onClick={() => { setLanInfo(null); setLanRole(null); setLanStatus('已离开房间'); }}>离开</button>
+                      <button className="text-btn" onClick={() => { setLanInfo(null); setLanRole(null); setLanMembers([]); setLanStatus('已离开房间'); }}>离开</button>
                     </>
                   )}
                 </div>

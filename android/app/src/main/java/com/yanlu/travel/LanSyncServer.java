@@ -18,6 +18,10 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tiny LAN HTTP room server. It only exchanges an opaque trip JSON snapshot
@@ -34,6 +38,13 @@ public final class LanSyncServer {
     private String room = "";
     private volatile String snapshot = "";
     private volatile int version = 0;
+    private final Map<String, Member> members = new ConcurrentHashMap<>();
+
+    private static final class Member {
+        final String name;
+        final long seenAt;
+        Member(String name, long seenAt) { this.name = name; this.seenAt = seenAt; }
+    }
 
     public LanSyncServer(int port) {
         this.port = port;
@@ -42,6 +53,7 @@ public final class LanSyncServer {
     public synchronized String start() throws IOException {
         if (running) return infoJson();
         room = String.format("%06d", random.nextInt(1_000_000));
+        members.clear();
         serverSocket = new ServerSocket();
         serverSocket.setReuseAddress(true);
         serverSocket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), port));
@@ -125,17 +137,33 @@ public final class LanSyncServer {
                 return;
             }
             String query = path.contains("?") ? path.substring(path.indexOf('?') + 1) : "";
-            String requestedRoom = null;
+            Map<String, String> params = new HashMap<>();
             for (String part : query.split("&")) {
                 int eq = part.indexOf('=');
                 if (eq > 0) {
                     String key = URLDecoder.decode(part.substring(0, eq), "UTF-8");
                     String value = URLDecoder.decode(part.substring(eq + 1), "UTF-8");
-                    if (key.equals("room")) requestedRoom = value;
+                    params.put(key, value);
                 }
             }
+            String requestedRoom = params.get("room");
             if (requestedRoom == null || !requestedRoom.equals(room)) {
                 send(socket, 403, "{\"ok\":false,\"error\":\"room mismatch\"}");
+                return;
+            }
+            if (cleanPath.equals("/hello") && method.equals("POST")) {
+                String id = params.get("id");
+                String name = params.get("name");
+                if (id == null || id.isEmpty()) {
+                    send(socket, 400, "{\"ok\":false,\"error\":\"missing id\"}");
+                    return;
+                }
+                members.put(id, new Member(name == null || name.isEmpty() ? "同行者" : name, System.currentTimeMillis()));
+                send(socket, 200, membersJson());
+                return;
+            }
+            if (cleanPath.equals("/members") && method.equals("GET")) {
+                send(socket, 200, membersJson());
                 return;
             }
             if (cleanPath.equals("/snapshot") && method.equals("GET")) {
@@ -162,6 +190,26 @@ public final class LanSyncServer {
         } catch (Exception e) {
             Log.w(TAG, "request failed: " + e.getMessage());
         }
+    }
+
+    private String membersJson() {
+        long now = System.currentTimeMillis();
+        Iterator<Map.Entry<String, Member>> it = members.entrySet().iterator();
+        while (it.hasNext()) {
+            if (now - it.next().getValue().seenAt > 12000) it.remove();
+        }
+        StringBuilder json = new StringBuilder("{\"ok\":true,\"members\":[");
+        boolean first = true;
+        for (Member member : members.values()) {
+            if (!first) json.append(',');
+            first = false;
+            json.append("\"").append(escape(member.name)).append("\"");
+        }
+        return json.append("]}").toString();
+    }
+
+    private static String escape(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static byte[] readBody(BufferedReader reader, int length) throws IOException {

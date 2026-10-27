@@ -63,3 +63,23 @@ export async function probeLan(info: Pick<LanInfo, 'ip' | 'port'>): Promise<LanI
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 }
+
+export async function pingLan(
+  info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
+  id: string,
+  name: string,
+): Promise<{ ok: boolean; members: string[] }> {
+  const url = `http://${info.ip}:${info.port}/hello?room=${encodeURIComponent(info.room)}&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`;
+  const response = await fetch(url, { method: 'POST', cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+}
+
+export async function fetchLanMembers(
+  info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
+): Promise<string[]> {
+  const response = await fetch(`http://${info.ip}:${info.port}/members?room=${encodeURIComponent(info.room)}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data.members) ? data.members : [];
+}
