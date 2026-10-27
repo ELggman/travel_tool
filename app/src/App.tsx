@@ -50,17 +50,29 @@ function normalizeDay(day: Day, index: number, city: AvailableCityId): Day {
   };
 }
 
+function pruneTombstones(raw: Record<string, number> | undefined): Record<string, number> | undefined {
+  if (!raw) return undefined;
+  const now = Date.now();
+  const entries = Object.entries(raw)
+    .filter(([, at]) => Number.isFinite(at) && now - at <= 90 * 24 * 60 * 60 * 1000)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 500);
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
   const fallback = seedTrip(city);
   if (!raw) return fallback;
   const legacy = raw as Trip & { day?: Day };
   const rawDays = Array.isArray(raw.days) ? raw.days : legacy.day ? [legacy.day] : [];
+  const tombstones = pruneTombstones(raw.tombstones);
   const normalized = rawDays.length ? rawDays.map((day, i) => normalizeDay(day, i, city)) : fallback.days;
   const filtered = normalized
-    .filter((day) => !raw.tombstones?.[`day:${day.id}`])
+    .filter((day) => !tombstones?.[`day:${day.id}`])
     .map((day) => ({
       ...day,
-      stops: day.stops.filter((stop) => !raw.tombstones?.[`stop:${stop.id}`]),
+      stops: day.stops.filter((stop) => !tombstones?.[`stop:${stop.id}`]),
+      lodging: tombstones?.[`lodging:${day.id}`] ? undefined : day.lodging,
     }));
   const days = filtered.length ? filtered : fallback.days;
   const activeDayId = days.some((day) => day.id === raw.activeDayId) ? raw.activeDayId : days[0].id;
@@ -72,7 +84,7 @@ function normalizeTrip(raw: Trip | undefined, city: AvailableCityId): Trip {
     startDate,
     days: days.map((day, i) => ({ ...day, date: addDays(startDate, i) })),
     activeDayId,
-    tombstones: raw.tombstones,
+    tombstones,
   };
 }
 
@@ -381,13 +393,18 @@ function App() {
   const updateLodging = (lodging: Lodging | undefined) => {
     setState((prev) => {
       const currentTrip = prev.trips[prev.activeCity];
+      const dayId = currentTrip.activeDayId;
+      const tombstones = { ...currentTrip.tombstones };
+      if (lodging) delete tombstones[`lodging:${dayId}`];
+      else tombstones[`lodging:${dayId}`] = Date.now();
       return {
         ...prev,
         trips: {
           ...prev.trips,
           [prev.activeCity]: {
             ...currentTrip,
-            days: currentTrip.days.map((day) => (day.id === currentTrip.activeDayId ? { ...day, lodging } : day)),
+            days: currentTrip.days.map((day) => (day.id === dayId ? { ...day, lodging } : day)),
+            tombstones,
           },
         },
       };
@@ -1375,11 +1392,11 @@ function App() {
           <section className="people-hero">
             <span className="eyebrow">TRAVEL TOGETHER</span>
             <h1>同行</h1>
-            <p>把行程发给朋友。同行设备在同一 Wi-Fi 下通过房间交换行程快照，不需要账号或公网。当前先支持手动发布/拉取。</p>
+            <p>把行程发给朋友。同行设备在同一局域网（Wi-Fi 或房主手机热点）下通过房间交换行程快照，不需要账号或公网。</p>
           </section>
 
           <section className="people-card lan-card">
-            <div className="people-title"><strong>局域网同步</strong><span>{lanSupported() ? '同一 Wi-Fi · 无云端' : '仅 Android App 可用'}</span></div>
+            <div className="people-title"><strong>局域网同步</strong><span>{lanSupported() ? '同一局域网 · 无云端' : '仅 Android App 可用'}</span></div>
             {!lanInfo && (
               <label className="lan-name">我的昵称
                 <input
@@ -1432,7 +1449,7 @@ function App() {
               </>
             ) : (
               <>
-                <p className="people-note">同一 Wi-Fi 下交换行程快照，不需要账号或公网。房主需要 Android App；同行设备可以是 Android 或浏览器。</p>
+                <p className="people-note">同一局域网（Wi-Fi 或房主手机热点）下交换行程快照，不需要账号或公网。房主需要 Android App；同行设备可以是 Android 或浏览器。</p>
                 {lanSupported() && <button className="primary lan-host-btn" disabled={lanBusy} onClick={startRoom}>开启房间（房主）</button>}
                 <div className="lan-join">
                   <span>{lanSupported() ? '或加入房间' : '输入房主地址加入'}</span>
@@ -1505,7 +1522,7 @@ function App() {
           </section>
 
           <footer className="app-footer">
-            <span>同一 Wi-Fi · 无账号 · 无云端</span>
+            <span>同一局域网 · 无账号 · 无云端</span>
             <span>{pack.city} · {pack.version}</span>
           </footer>
         </main>

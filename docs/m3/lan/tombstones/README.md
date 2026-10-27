@@ -12,6 +12,7 @@ key：
 ```text
 stop:<stopId>
 day:<dayId>
+lodging:<dayId>
 ```
 
 值为删除时间（毫秒）。随 Trip 一起同步、导出、导入。
@@ -20,6 +21,7 @@ day:<dayId>
 
 - 删除 Stop：从当天移除，并写入 `stop:<id>`
 - 删除 Day：移除当天，并写入 `day:<id>`，同时写入该天所有 Stop 的 `stop:<id>`
+- 移除住宿：写入 `lodging:<dayId>`；再次保存住宿时移除该 key
 - `normalizeTrip` 加载/合并后统一过滤：
   - 丢弃墓碑命中的 Day
   - 丢弃墓碑命中的 Stop
@@ -45,7 +47,8 @@ tombstones 中该 key 保留
 ## 限制
 
 - 不是操作日志；没有 `rev`/`delta`/操作回放
-- 墓碑永不清理（会随 Trip 增长；当前最多天/点数很小）
+- 墓碑保留 90 天，且最多保留最新 500 条；更老的删除可能被旧数据复活（权衡）
+- 住宿墓碑已支持；Booking/Lodging 的其他子字段没有独立墓碑
 - 冲突选择“保留本机”时，可能重新引入被远端删除的项（用户显式选择）
 - 没有为 Booking/Lodging 建墓碑
 - 使用导入恢复已删项时，导入文件若不含墓碑即可恢复（显式操作）
