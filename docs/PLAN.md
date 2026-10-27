@@ -903,13 +903,14 @@ git push -u origin feat/map-engine
 - 2026-10-27 3 客户端同字段并发：Android Guest 与浏览器 Guest 同时改标题，浏览器成功 v2，Android Guest 显示冲突并采用远端后收敛。详见 [三客户端记录](m3/lan/three-client/README.md)。
 - 2026-10-27 弱网：Mac TCP 代理注入 600 ms 延迟；再注入 300 ms + 20% 连接丢弃，Guest 修改最终到达 Host。详见 [弱网记录](m3/lan/weak-network/README.md)。
 - 2026-10-27 tombstone：删除 Stop/Day 写入 `Trip.tombstones`，合并/加载时过滤；导入带墓碑的旧 Stop 验证被过滤。详见 [tombstone 记录](m3/lan/tombstones/README.md)。
+- 2026-10-27 变更历史 UI：同行页接入 `/history`，显示版本/clientId/baseVersion/时间；这是审计层，不是操作日志或 delta。详见 [变更历史记录](m3/lan/history/README.md)。
 
 ### 下一步
 
 以下按优先级排列。**通信部分仍是最高优先级：在真机双机验收之前，不继续扩展与通信无关的 UI。**
 
 1. **局域网验收（真机延后）**：已过双模拟器、3 客户端、冲突、断网、后台、锁屏、弱网（延迟+连接丢弃）；仍需补长时间断网、3 个 Android 同时写、真实无线链路。两台真机同 Wi-Fi 作为延后项，不作为当前阻塞。
-2. **M3.3b（部分完成）**：tombstone 已加（删除不复活）；完整操作日志 `rev/delta/op` 仍未做，需先决定是否值得为 2–6 人场景重写协议。
+2. **M3.3b（部分完成）**：tombstone 与变更历史审计已加；完整操作日志 `rev/delta/op` 仍未做，需先决定是否值得为 2–6 人场景重写协议。
 3. **安全最小集（完成当前范围）**：token 约 130 bit、`X-Yanlu-Room` 头、失败限速；AES-GCM 明确不做，TLS/指纹作为未来可选项。
 4. **离线导入导出兜底（部分完成）**：JSON 导出/导入已可用；`.yanlu` 文件、合并式导入、二维码/系统分享仍未做。
 5. **三城异常路线修正**：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06`；补齐离线 glyphs/POI 标签（§6 Phase 2 未完成项）。

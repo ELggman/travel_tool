@@ -16,7 +16,7 @@ import {
   availableCities, cityPlaces, formatBytes, makeStop, packs, provinceOf, seedTrip, themes,
 } from './data/packs';
 import type { AvailableCityId, CityId, Day, LegRoute, Lodging, Place, Stop, Theme, Transport, Trip } from './data/types';
-import { fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanInfo } from './lib/lan';
+import { fetchLanHistory, fetchLanSnapshot, lanSupported, leaveLan, pingLan, probeLan, publishLanSnapshot, pushLanSnapshot, startLanHost, stopLanHost, type LanHistoryEntry, type LanInfo } from './lib/lan';
 import { merge3 } from './lib/threeWay';
 import { dateLabel, formatDuration, formatKm, formatTime, parseTime } from './utils';
 
@@ -149,6 +149,7 @@ function App() {
   const [lanBusy, setLanBusy] = useState(false);
   const [lanRole, setLanRole] = useState<'host' | 'guest' | null>(null);
   const [lanMembers, setLanMembers] = useState<string[]>([]);
+  const [lanHistory, setLanHistory] = useState<LanHistoryEntry[]>([]);
   const [lanNickname, setLanNickname] = useState(() => {
     try { return localStorage.getItem('yanlu.lan.name') ?? ''; } catch { return ''; }
   });
@@ -754,6 +755,7 @@ function App() {
       setLanInfo(info);
       setLanRole('host');
       setLanMembers([]);
+      setLanHistory([]);
       setLanConflict(null);
       setLanGone(false);
       setLanRetry(0);
@@ -776,6 +778,7 @@ function App() {
     setLanInfo(null);
     setLanRole(null);
     setLanMembers([]);
+    setLanHistory([]);
     setLanConflict(null);
     setLanGone(false);
     lanVersionRef.current = 0;
@@ -834,6 +837,7 @@ function App() {
       setLanInfo({ ip, port, room, version: snap.version });
       setLanRole('guest');
       setLanMembers([]);
+      setLanHistory([]);
       setLanConflict(null);
       setLanGone(false);
       setLanRetry(0);
@@ -1016,6 +1020,7 @@ function App() {
     setLanInfo(null);
     setLanRole(null);
     setLanMembers([]);
+    setLanHistory([]);
     setLanConflict(null);
     setLanGone(false);
     setLanRetry(0);
@@ -1038,6 +1043,25 @@ function App() {
       window.removeEventListener('yanlu-foreground', onVisible);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lanInfo) return;
+    let cancelled = false;
+    const load = async () => {
+      const info = lanInfoRef.current;
+      if (!info || cancelled) return;
+      try {
+        const entries = await fetchLanHistory(info);
+        if (!cancelled) setLanHistory(entries.slice(0, 8));
+      } catch {
+        // history is advisory; sync status handles connectivity
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 5000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lanInfo?.room, lanInfo?.ip, lanInfo?.port]);
 
   const selectedStop = stopOpenId ? stops.find((s) => s.id === stopOpenId) ?? null : null;
   const selectedIndex = selectedStop ? stops.findIndex((s) => s.id === selectedStop.id) : -1;
@@ -1416,6 +1440,25 @@ function App() {
             )}
             {lanGone && <p className="lan-gone">房主已离开。当前行程仍保存在本机，可导出备份；重新同步需房主重新开房并再次加入。</p>}
             {lanStatus && <p className="lan-status">{lanStatus}</p>}
+          </section>
+
+          <section className="people-card">
+            <div className="people-title"><strong>房间变更记录</strong><span>版本历史 · 非操作日志</span></div>
+            {lanHistory.length ? (
+              <div className="lan-history">
+                {lanHistory.map((entry) => (
+                  <div key={`${entry.version}-${entry.clientId}-${entry.seq}`} className="lan-history-row">
+                    <strong>v{entry.version}</strong>
+                    <span>{entry.clientId.slice(0, 10)}</span>
+                    <span>base {entry.baseVersion}</span>
+                    <span>{new Date(entry.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="people-note">还没有成功写入记录。</p>
+            )}
+            <p className="people-note">这是服务端快照写入历史，不代表可回放的操作日志。</p>
           </section>
 
           <section className="people-card">

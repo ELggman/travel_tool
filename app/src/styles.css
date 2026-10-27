@@ -471,3 +471,6 @@ main { position: relative; z-index: 1; padding-bottom: 28px; }
 .lan-gone { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); font-size: 8px; line-height: 1.6; color: var(--accent); }
 .lan-name { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; font-size: 8px; color: var(--muted); }
 .lan-name input { flex: 1; min-width: 0; border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 7px; background: var(--paper); color: var(--ink); font-size: 9px; padding: 6px; }
+.lan-history { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
+.lan-history-row { display: grid; grid-template-columns: .5fr 1fr .7fr .6fr; gap: 6px; align-items: center; font-size: 8px; color: var(--muted); }
+.lan-history-row strong { color: var(--accent); font-size: 9px; }

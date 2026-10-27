@@ -11,6 +11,7 @@ type LanBridge = {
   start(): string;
   stop(): string;
   info(): string;
+  isForeground?(): boolean;
   publish(json: string): string;
   publishAt?(json: string, baseVersion: number): string;
   publishAtSeq?(json: string, baseVersion: number, clientId: string, seq: number): string;
@@ -131,4 +132,22 @@ export async function leaveLan(
   const response = await request(url, { method: 'POST', headers: roomHeaders(info.room), cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
+}
+
+export type LanHistoryEntry = {
+  version: number;
+  clientId: string;
+  seq: number;
+  baseVersion: number;
+  bytes: number;
+  at: number;
+};
+
+export async function fetchLanHistory(
+  info: Pick<LanInfo, 'ip' | 'port' | 'room'>,
+): Promise<LanHistoryEntry[]> {
+  const response = await request(`http://${info.ip}:${info.port}/history`, { headers: roomHeaders(info.room), cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data.history) ? data.history : [];
 }
