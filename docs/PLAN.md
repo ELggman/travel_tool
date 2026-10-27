@@ -1,11 +1,17 @@
 # 沿路 / YANLU · 从展示原型到可用 APK 的技术规划
 
-- 版本：v1.3 · 2026-10-22
-- 当前仓库：`index.html`、`screens.html`（静态视觉原型）
-- 目标：Android 优先、后续 iOS；**中国国内地图**；在线优先 + 完全离线地图 + 离线重算路线；无中心服务器；同一局域网内实时同步。
+- 版本：v1.4 · 2026-10-27（v1.3 · 2026-10-22 之后的修订）
+- 当前仓库：`index.html`、`screens.html`（静态视觉原型）+ `app/`（Vite/React 应用）+ `android/`（手工构建的 WebView 壳）+ `docs/`
+- 目标：Android 优先、后续 iOS；**中国国内地图**；在线优先 + 完全离线地图 + 离线重算路线；无中心服务器；同一局域网内同步。
 - 已确认：**朋友内部使用、暂无上架计划**；首批城市 **重庆 / 武汉 / 贵阳**；允许静态 CDN/对象存储分发离线包；第一版只做步行 + 打车；房主手机保持 App 打开可以接受；后续需要 iOS。
 - 三城验证计划：[docs/SPIKE-CITIES.md](SPIKE-CITIES.md)。
-- 本文记录规划与验证执行；三城地图/路由 spike 已完成，App 主体尚未开始重构。
+- 本文是**规划 + 执行记录**。v1.4 的主要修订：
+  1. 明确“设计目标”与“当前实现”的差距（§3.10、§6 Phase 5 状态）；
+  2. 局域网协作从原设计的 Capacitor/NSD/WebSocket/AES 改为当前已验证的 **原生 HTTP 房间服务**，并把剩余差距列为待办；
+  3. §5 数据模型对齐到实际实现（`version` / `baseVersion` / `clientId+seq`，暂无 tombstone 表）；
+  4. §9 执行记录补齐到 `v2.0-m3.3a`（M2.5 → M3.3a），并给出 M3.3b 的明确范围与验收。
+
+---
 
 ---
 
@@ -14,13 +20,14 @@
 1. **地图显示、地点搜索、算路是三件事。** 地图不一定要买商业 API；但既然要求“完全离线地图 + 离线重算”，就不能只考虑瓦片，必须同时准备**离线底图包 + 离线路网/路由引擎**。这已经不是展示层的小改动，而是 v1 的核心能力。
 2. **现阶段定为开源栈 A：MapLibre + PMTiles + 本地路由。** 朋友内部使用、暂不上架，因此优先选免费可控、可离线、能为 iOS 复用的方案。中国境内的数据完整度、POI 质量、坐标系统（WGS-84 / GCJ-02 / BD-09）仍要在三城实测；如果数据/路线不达标，再评估高德/百度/腾讯等国内 SDK。
 3. **在线优先、离线兜底的前提是“同一套地图数据与坐标系统”。** 现阶段在线与离线都使用同一份 OSM 数据与 WGS-84 坐标；不要在线用高德、离线用 OSM 这种混搭。只有 A 在目标城市明显不达标时，才评估整套切换到 B。
-4. **不做线上，最合适的是 Host Session（一台手机当房主）模式。** 房主手机跑局域网服务并广播“附近的行程”，其他人通过附近列表、二维码或手填地址加入；所有修改由房主串行确认后广播。WebView 本身不能监听端口或做 mDNS，所以需要 Capacitor + 原生插件；iOS 后续用 Swift 实现同一协议。
+4. **不做线上，最合适的是 Host Session（一台手机当房主）模式。** 房主手机跑局域网服务，其他人通过房间码/手填地址加入；修改由房主侧的版本号（`version`）串行确认。WebView 本身不能监听端口，所以需要原生层；**原设计的 Capacitor + Kotlin NSD + WebSocket + AES-GCM 方案尚未落地，当前实现是原生 `LanSyncServer`（纯 HTTP，见 §3.10）**。iOS 后续用 Swift 实现同一协议。
 5. **不建议做“搜索附近用户”。** 更可靠、更少隐私问题的方式是发现“附近的行程/同步房间”，再用二维码确认加入。用户搜索会受到前后台限制、Wi-Fi 隔离和身份暴露问题影响。
-6. **最大风险已经变成四条：**
-   - 重庆/武汉/贵阳的 OSM 数据、POI 与路线质量；
+6. **最大风险已经变成五条：**
+   - 重庆/武汉/贵阳的 OSM 数据、POI 与路线质量（三城 spike 为“条件通过”，异常路线未清零）；
    - 手机端离线重算（尤其还要兼顾 iOS）；
-   - 城市包体积与静态 CDN 分发；
-   - 局域网发现、后台存活与房主单点。
+   - 城市包体积与静态 CDN 分发（CDN 尚未接入，目前是本机 pack server）；
+   - 局域网发现、后台存活与房主单点（NSD、前台服务、加密均未实现，见 §3.10）；
+   - **通信正确性仍未经真机验证**：已完成两台 Android 模拟器 App-to-App（adb forward）+ 浏览器 Guest；真机同 Wi-Fi 因设备不可用而延后，不作为当前阻塞。
 7. **Git 基线已建立。** 原型、规划、后续 App、原生插件分层管理；APK、签名文件、地图大包不进 Git。
 8. **离线包分发方式已确定：静态 CDN/对象存储。** 国内访问优先选阿里云 OSS/腾讯云 COS 等；包只含地图数据，不含用户行程。自定义大陆 CDN 域名可能涉及备案。
 
@@ -341,13 +348,39 @@ Android 侧需要：
 
 ### 3.4 同步协议
 
-**v1：房主权威 + 修订号（revision）。**
+#### 3.4.1 原设计（目标态，尚未实现）
+
+**v1 目标：房主权威 + 修订号（revision）+ 操作日志。**
 
 - 房主状态：`trip`、`revision`、`changeLog`、`members`。
 - 加入：客户端发 `hello { deviceId, name, baseRev }`，房主回 `snapshot` 或 `delta(baseRev..rev)`。
 - 实时：客户端发操作意图（`reorder_stops`、`upsert_stop`、`delete_stop`、`set_booking` 等），房主校验后分配 `rev` 并广播。
 - 确认：客户端收到 `ack {rev}`；失败时回滚或提示。
 - 在线状态：`presence { stopId, editing, cursor? }` 广播，用于现在的“阿宁正在看”提示。
+
+#### 3.4.2 当前实现（已落地，M3.0–M3.3a）
+
+协议是**快照式**，不是操作日志：
+
+| 能力 | 实现 |
+|---|---|
+| 房间 | 房主 `LanSyncServer` 生成 6 位房间码；`/info`、`/snapshot`、`/members`、`/hello`、`/leave`、`/history` 均要求 `room` 参数（`/info` 无参数返回 403，修复了早期的房间码泄露） |
+| 版本 | 服务端单调递增 `version`；成功写入后 +1；新房间清零 |
+| 写入 | `POST /snapshot?room=&baseVersion=&clientId=&seq=`：`baseVersion` 不等于当前版本返回 **409**；`clientId+seq` 重复返回 `duplicate`（幂等，防超时重试） |
+| 读取 | `GET /snapshot` 返回整份 Trip + version；客户端轮询（约 1.5 s） |
+| 合并 | 客户端三向合并（`base` / `local` / `remote`）：按 Day/Stop `id` 逐字段合并；同字段两边都改、删除 vs 修改、数组顺序两边都改 → 冲突，由用户在“采用远端 / 保留本机”中选择 |
+| 在线 | `/hello` 心跳 + 服务端 12 s TTL；`/leave` 显式离开 |
+| 审计 | `/history` 保留最近 30 次成功写入（version / clientId / seq / baseVersion / bytes / at），仅用于排查，不是同步权威 |
+| 超时 | 所有客户端请求 3.5 s 超时；轮询 in-flight 防重入 |
+
+与 §3.4.1 的差异（**需要在 M3.3b 解决**）：
+
+- 没有操作日志、没有 `rev`/`Lamport`/`actorId`，写入是整份快照；
+- 没有 tombstone 表，删除依靠“相对 base 缺失”推断；
+- 没有 `delta(baseRev..rev)` 增量；每次轮询都是全量（Trip 约 1 KB–数十 KB，局域网可接受，但不可扩展到 20 人）；
+- 没有 `presence { stopId, editing }`，只有成员计数；
+- 没有服务端加密（见 §3.6）；
+- 两次几乎同时的写入：后到者会收到 409，客户端合并后重推，**不会静默覆盖**，但“同一字段并发修改”仍需要人工选择。
 
 **离线编辑：**
 
@@ -366,6 +399,8 @@ Android 侧需要：
 - 第一版不建议直接上 CRDT：调试成本高，而且当前场景以“一个人改、其他人看”为主。
 
 ### 3.5 原生层怎么接
+
+> **当前实现与本节的差距（以代码为准）：** 当前 `android/` 不是 Capacitor 工程，而是 `aapt2 → javac → d8 → apksigner` 手工构建的 WebView 壳（见 [android/README.md](../android/README.md)）。局域网能力由 `LanSyncServer.java`（纯 `ServerSocket` + HTTP）和 `MainActivity.LanBridge`（`@JavascriptInterface`：`start / stop / info / publish / publishAt / publishAtSeq`）提供。**没有** NSD 注册/发现、没有前台服务、没有 WebSocket、没有应用层加密，也没有 Capacitor 插件接口。下面是目标设计。
 
 WebView 不能做房主，所以用 Capacitor 自定义插件，而不是找不稳定的第三方 mDNS 插件。
 
@@ -397,13 +432,23 @@ interface YanluSyncPlugin {
 
 ### 3.6 安全
 
-局域网不是可信网络。最低要求：
+局域网不是可信网络。最低要求（**目标**）：
 
 - 每个 session 生成高熵 token；加入必须带 token。
 - 二维码里的 token 只展示给现场的人，不写日志、不广播。
 - 如果行程内容敏感，对消息做应用层加密（AES-GCM，密钥由二维码中的高熵 secret 派生）；这样即使同 Wi-Fi 有人抓包也看不到明文。
 - 不建议在公共/无密码 Wi-Fi 上使用；UI 里给出提示。
 - 不做账号体系，因此没有“找回密码”“远程踢人”的云能力；房主可以在会话中移除成员。
+
+**当前实现（M3.3a）：**
+
+- 只有 6 位数字房间码（约 10⁶ 种），无速率限制、无锁定；
+- 明文 HTTP，无 TLS，无应用层加密；
+- CORS 为 `*`（任何同网段网页只要拿到房间码即可读写）；
+- 房间码通过 `/info` 之外的路径传输，但仍出现在 URL query 中（可能进入代理/系统日志）。
+- 已修复：`/info` 早期版本不需要房间码即可泄露房间码（M3.1 审查中发现并修复）。
+
+**结论：当前安全等级仅适合“可信的小范围同 Wi-Fi、朋友内部使用”。** 在进入真机双机验收前，至少应补齐：更长的随机房间 token（≥128 bit）、请求限速、以及是否启用加密的明确决定（见 §7.2 新增的待确认项）。
 
 ### 3.7 失败模式与兜底
 
@@ -414,7 +459,10 @@ interface YanluSyncPlugin {
 | 房主切后台/锁屏 | 会话可能暂停；前台服务尽量保活，UI 明示（已接受此限制） |
 | 房主离开 | 会话结束；所有成员保留本地副本 |
 | 成员离线编辑后回来 | 提交待同步操作；冲突时提示 |
-| 完全无法连上 | 导出 `.yanlu` 文件/二维码快照，用微信/AirDrop/本地文件互传兜底 |
+| 两人几乎同时写入 | 后到者 `baseVersion` 过期 → 服务端 409 → 客户端拉取、三向合并后重推（已实现；不会静默覆盖） |
+| 同一字段被两人修改 | 三向合并检测为冲突，展示路径（如 `stops[...].category`），用户选择（已实现） |
+| 写请求超时后重试 | `clientId+seq` 幂等，重复提交返回 `duplicate`（已实现） |
+| 完全无法连上 | 导出 `.yanlu` 文件/二维码快照，用微信/AirDrop/本地文件互传兜底（**未实现**：当前只有 JSON 导出，没有导入/二维码） |
 
 **重要：** “不做线上”意味着没有云端备份。必须提供本地导出/导入，否则手机丢失或卸载就是数据丢失。
 
@@ -427,6 +475,16 @@ interface YanluSyncPlugin {
 3. **协议 spike**：两个客户端同时拖拽同一天，验证房主串行、版本号、冲突提示是否可控。
 
 这三个 spike 通过，再决定是否值得投入完整的协作 UI。
+
+**实际完成情况（2026-10-27）：**
+
+| Spike | 状态 | 说明 |
+|---|---|---|
+| 发现 | **未做** | 没有 NSD；当前只支持手动输入房主 IP + 房间码（`probeLan`） |
+| 通道 | **部分** | 用 HTTP 轮询代替 WebSocket；**两台 Android 模拟器 App-to-App（adb forward）已验证**，另有浏览器 Guest；真机、5 台设备、锁屏、切后台均未测 |
+| 协议 | **部分** | 两个 Guest 同时写已验证（409 / 三向合并 / 冲突选择）；拖拽级别的并发未单独测 |
+
+因此 §6 Phase 5 中“两台真机 10 秒内发现”一项**尚未满足**。
 
 ### 3.9 iOS 的对应实现（后续）
 
@@ -444,6 +502,25 @@ interface YanluSyncPlugin {
 - 优先选择**跨端可复用**的地图渲染（MapLibre GL JS）和路由方案（TS A* 或 Valhalla）；
 - 原生同步协议做成平台无关的 JSON，Kotlin/Swift 只负责传输；
 - 不要在没有抽象的情况下把 Android 原生路由引擎写进业务层。
+
+### 3.10 设计与实现对照（2026-10-27）
+
+| 项 | 原设计（§3.2–3.6） | 当前实现 | 状态 |
+|---|---|---|---|
+| 壳 | Capacitor + Kotlin 插件 | 手工 javac/aapt2 WebView 壳 | 偏离，待决定 |
+| 房主服务 | 原生 WebSocket，NSD 广播 | 原生 `ServerSocket` HTTP（0.0.0.0:8766） | 偏离（无 NSD、无 WS） |
+| 发现 | NSD + 二维码 + 手动 IP | 仅手动 IP + 房间码 | 部分 |
+| 加入凭证 | 高熵 token（二维码携带） | 6 位房间码 | 偏离（强度不足） |
+| 加密 | AES-GCM（应用层） | 无 | 未做 |
+| 同步模型 | 操作日志 + rev + Lamport + delta | 快照 + 版本号 + 三向合并 + 幂等 | 偏离（见 §3.4.2） |
+| 删除 | tombstone | 相对 base 推断 | 偏离 |
+| 在线状态 | presence（stopId/editing） | 成员计数 + TTL | 部分 |
+| 前台服务/保活 | 必须 | 无（Activity 销毁即停服） | 未做 |
+| 离线导出导入 | 必须（兜底） | 仅 JSON 导出 | 部分 |
+| 双机真机验收 | 必须（Phase 5） | 两台 Android 模拟器 App-to-App 已通过（adb forward）；真机不可用，延后 | 替代验收通过，真机延后 |
+
+**修订决定：** 上表中“偏离”项不再默认视为待办；每一项需要在 M3.3b 之前明确“做 / 不做 / 延后”，并在 §7.2 中登记。否则文档会继续描述一个不存在的系统。
+
 
 ---
 
@@ -525,6 +602,34 @@ travel_tool/
 | PackInstall | packId, version, installedAt, storagePath, status |
 | Session | groupId, hostDeviceId, host, port, token, startedAt（临时，不长期保存） |
 
+#### 5.1 当前实现（`app/src/data/types.ts`，M2.5 / M3.3a）
+
+与上表的主要差异（**不做迁移的话，以下字段是事实标准**）：
+
+| 实体 | 实现 | 与草案的差异 |
+|---|---|---|
+| Trip | `id, cityId, title, startDate, days[], activeDayId` | 无 `revision`（用房间的 `version` 代替）、无 `endDate`/`cover`/`mapPackIds`/`createdBy`；`cityId` 是主城市，每天可有不同 `Day.cityId` |
+| Day | `id, date, label, title?, cityId?, startTime, earliestStart?, latestEnd?, stops[], lodging?` | 无 `sortOrder`（数组顺序即顺序）；**新增** `earliestStart/latestEnd`（M2.5）；住宿直接挂在 Day 上（`lodging`），而不是独立 Booking 实体 |
+| Stop | `id, placeId, name, category, lon, lat, durationMin, transportToNext, booking, fixedTime?, notes?, transportInfo?` | 坐标为 `lon/lat`（WGS-84 隐含），**无 `crs` 字段**；无 `dayId`（嵌在 Day 里）；无 `lamport`/`updatedBy`；**新增** `transportInfo`（M2.5：班次、车站、发车/到达、提前到站） |
+| Lodging | `name, checkIn, checkOut, nights?, address?, booking?, lon?, lat?, note?` | 对应草案 Booking 的一部分；无 `status`，`booking` 为订单号字符串 |
+| Leg | 未持久化，运行时由 `useRouting` 计算（`LegRoute`） | 草案中的 `graphVersion/source/computedAt` 尚未写入；**距离/耗时来源标记只在 UI 层标注“估算/离线”** |
+| Member | 无持久化；`/members` 只返回名字字符串 | 无 `deviceId/role/color`，`deviceId` 只存于 localStorage（`yanlu.lan.device`） |
+| ChangeLog | **无** | 见 §3.4.2；M3.3b 目标 |
+| MapPack | `packs.ts` 静态表：`id, city, version, sizeBytes, maxzoom` 等 | 无 `sha256/bbox/license/builtAt` 的运行时校验；SHA-256 未接入下载流程 |
+| PackInstall | `packCache.ts` 中 CacheStorage 命名空间 `yanlu-pack-v2-<city>` | 无 `status/installedAt` 表；以 CacheStorage 为准 |
+| Session | 内存态 `lanInfo`（`ip, port, room, version`） | 无 `groupId/token`；不长期保存（符合草案） |
+
+#### 5.2 草案约束的落实情况
+
+- 稳定 ID：**已满足**（`Day.id`、`Stop.id` 为字符串，合并按 id 进行）。
+- 时间存储：部分满足（`startTime/fixedTime` 为 `HH:mm` 字符串，**未带时区**；当前只支持单时区）。
+- 坐标与 `crs`：**部分满足**（坐标存在，`crs` 未存，默认 WGS-84）。
+- 距离/耗时 `source`：**未满足**（见上表 Leg）。
+- 删除 tombstone：**未满足**（见 §3.4.2）。
+- 预订结构化：**部分满足**（交通与住宿有结构字段；`Stop.booking` 仍是自由文本）。
+- 地图包版本/哈希入库：**未满足**（见上表 MapPack）。
+- 包与路网版本匹配：**未满足**（运行时无版本号校验）。
+
 约束：
 
 - 所有实体使用稳定 UUID，不用数组下标做身份；重排只改顺序。
@@ -551,6 +656,8 @@ travel_tool/
 
 ### Phase 0 · 基线与规划（现在）
 
+> **状态：** 已完成。Git 基线、规划文档、三城 spike 计划均已落地。
+
 - Git 初始化、`.gitignore`、README、本规划；
 - 保留现有原型作为视觉参考；
 - 锁定已确认约束：中国区、在线优先 + 完全离线、步行/打车、Android 优先后 iOS、房主保持 App 打开；
@@ -559,6 +666,8 @@ travel_tool/
 **完成标志：** 仓库可追溯，后续每个阶段都有明确验收标准。
 
 ### Phase 1 · 真正的行程数据与编辑（约 1.5–2.5 周）
+
+> **状态：** **基本完成（M1 / M2.4 / M2.5）。** 已实现：多日行程、拖动排序、地点增删、日期/标题/每日城市、固定到达时间、备注、交通班次与住宿、每日最早出发/最晚结束、localStorage 持久化。**差异：** 数据层仍是 localStorage，不是 SQLite/Dexie；撤销与结构化预订冲突提示未完整实现。
 
 - Vite + TS + React 脚手架，迁移设计 token；
 - 数据模型、SQLite/Dexie、本地持久化；
@@ -571,6 +680,8 @@ travel_tool/
 
 ### Phase 2 · 地图底座与中国区数据验证（约 2–3 周）
 
+> **状态：** **核心已完成（三城 spike，2026-10-22）。** MapLibre + 本地 PMTiles/瓦片 + 本地步行/打车路网 + Web Worker A* 已验证；三城 30 条样本 28/30 与 OSRM 误差 ≤10%。**未完成：** `cq-walk-08`、`wh-taxi-07`、`gy-taxi-06` 异常路线未修；完整 glyphs/POI 标签未补；坐标仍以 WGS-84 为准，GCJ-02 边界转换未实现（开源栈不需要，切换 SDK 时才需要）。
+
 - 抽象 `MapProvider` / `RoutingProvider`；
 - MapLibre GL JS + 在线底图，接入真实经纬度与地图点选；
 - 用 **重庆、武汉、贵阳** 验证 OSM 数据、路网、POI 与路线质量；
@@ -582,6 +693,8 @@ travel_tool/
 
 ### Phase 3 · Android 壳与首个 APK（约 3–5 天）
 
+> **状态：** **已完成（手工构建壳，非 Capacitor）。** APK 可在模拟器安装运行，三城离线加载、A* 可用。**差异：** 未用 Capacitor；返回键/安全区/图标包名的验收项未逐条记录；物理真机尚未验证。
+
 - Capacitor 接入，生成 `android/`；
 - 全屏/安全区、状态栏、返回键；
 - 应用名、图标、包名、竖屏锁定；
@@ -591,6 +704,8 @@ travel_tool/
 **验收：** APK 可安装；返回键从 Day 回总览；拖动中返回先取消；没有系统状态栏/浏览器栏冲突；断网可编辑；地图包文件可由 WebView 读取。
 
 ### Phase 4 · 离线地图包与离线重算（约 3–5 周，核心）
+
+> **状态：** **大部分完成，分发部分未完成。** 已完成：重庆主城标准包 + z16 精细叠加、武汉/贵阳核心包、POI 索引随包、zip 归档下载、CacheStorage 离线读取、断网算路、删除释放。**未完成：** 静态 CDN/OSS/COS 接入（当前为本机 `pack_server.py`）、SHA-256 校验、断点续传/暂停、配额淘汰、版本更新、z17、真机飞行模式验收。
 
 - 按城市生成 `basemap.pmtiles`、路网图、POI 索引、glyphs/sprites、manifest；首批重庆/武汉/贵阳核心区；
 - 静态 CDN/对象存储：版本化路径、CORS、Range、SHA-256 校验、断点续传；
@@ -605,6 +720,10 @@ travel_tool/
 
 ### Phase 5 · 局域网协作 MVP（约 2–4 周）
 
+> **状态：部分完成（M3.0–M3.3a，双 Android 模拟器 App-to-App + 浏览器 Guest；真机延后）。** 已完成：原生房间服务、房间码保护、快照版本与 409 拒绝、三向字段合并与冲突选择、幂等写入、自动同步（约 1.5 s 轮询）、在线成员与显式离开、历史审计、请求超时。**未完成：** Kotlin NSD 发现、二维码/token 加入、WebSocket、前台服务、应用层加密、tombstone、增量 delta、presence 编辑态、离线导入导出兜底、两台以上真机测试。
+
+计划内容（原定，保留为验收基准）：
+
 - Kotlin 插件：NSD 注册/发现、本地 WS 服务、前台服务、token；
 - 房主/加入 UI、附近行程列表、二维码、手动 IP；
 - 快照 + 修订号 + 操作广播；
@@ -613,6 +732,17 @@ travel_tool/
 - 两台真机、三台真机、热点、公共 Wi-Fi、无互联网 Wi-Fi 的测试矩阵。
 
 **验收：** 两台手机同一 Wi-Fi（可以没有互联网），10 秒内发现并加入；修改 1 秒内出现在另一台；离线修改重连后可合并；房主离开有明确提示且不丢本地数据；离线地图 + 局域网协作同时可用。
+
+**当前验收结果：**
+
+| 验收项 | 结果 |
+|---|---|
+| 双 Android App-to-App（adb forward） | **通过**：两台模拟器加入、成员 2 人、双向标题同步；见 [双模拟器记录](m3/lan/two-emulator/README.md) |
+| 同 Wi-Fi 10 秒内发现并加入 | **未达成**：无 NSD，需手填 IP + 房间码；真机未测 |
+| 修改 1 秒内出现在另一台 | **部分**：轮询约 1.5 s + 900 ms 防抖；双模拟器 App-to-App 实测在数秒内双向同步；未测真机 |
+| 离线修改重连后可合并 | **部分**：三向合并已验证（非冲突合并、同字段冲突）；“断网→重连”的真实网络中断未测 |
+| 房主离开不丢本地数据 | **部分**：Guest 保留本地副本；房主关闭房间后 Guest 轮询失败但不清空数据（未显式提示“房主已离开”） |
+| 离线地图 + 局域网协作同时可用 | **未验证**：未做飞行模式 + 局域网的组合测试 |
 
 ### Phase 6 · iOS 移植（约 3–5 周，Android v1 之后）
 
@@ -681,6 +811,10 @@ travel_tool/
 5. **Android 优先，后续 iOS**；代码/协议/离线包格式要为 iOS 留出复用空间。
 6. **房主手机保持 App 打开可以接受**；实时同步定位为“同一局域网 + App 活跃”。
 7. **离线包分发允许静态 CDN/对象存储**；只放地图数据，不放用户行程；国内优先 OSS/COS。
+8. **三城 spike：条件通过，继续开源栈 A**（2026-10-22）。异常路线与打车时长标定作为后续修正项，不阻塞 App 开发。
+9. **Android 壳采用手工 WebView 构建（aapt2/javac/d8/apksigner），暂不引入 Capacitor 或 Gradle。** 理由：本机 Gradle native 兼容问题；壳职责单一。**代价：** NSD/前台服务等原生能力需要自己写，Capacitor 插件体系不可用。该决定在 Phase 5 真正需要 NSD 前决定是否保留。
+10. **局域网协作采用快照 + 版本号 + 三向合并**，而非操作日志（M3.2b 决定）。理由：实现快、可验证；代价是无增量、无服务端历史、删除靠推断。M3.3b 再决定是否升级为操作日志。
+11. **局域网当前只依赖 6 位房间码**（M3.3a）。这是“朋友内部、可信小范围”的临时选择，**不是最终安全方案**，见 §3.6。
 
 #### 仍需确认
 
@@ -690,6 +824,12 @@ travel_tool/
 4. **三城核心区 bbox**：尤其重庆，需要明确离线包覆盖到哪些区，避免包过大。
 5. **三城 spike 结果**：若 OSM 路线质量不达标，是缩小范围、接受更多“地图点选/估算”，还是整体切换国内 SDK。
 6. **静态包托管商**：阿里云 OSS / 腾讯云 COS / 其他；是否需要自定义域名（大陆 CDN 域名可能涉及备案）。
+7. **三城 spike 异常路线**：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06` 修正方式（补连接 / 转向限制 / 接受为估算）。
+8. **局域网安全等级**：是否升级为 ≥128 bit 随机 token + AES-GCM（§3.6），还是接受房间码 + 朋友内部使用。影响 Phase 5 验收与二维码设计。
+9. **局域网发现方式**：NSD（需要原生 Kotlin 插件）还是长期只用手动 IP / 二维码。决定是否重新引入 Capacitor 或保留手工壳。
+10. **房主离开后的数据策略**：Guest 是否保留完整副本并自动转为房主，还是仅提示导出（当前为保留副本、无提示）。
+11. **双机真机验收的时间与设备**：Phase 5 最终验收需要两台 Android 真机，目前无法取得。**当前决定：先用两台 Android 模拟器 App-to-App 作为替代验收，真机项延后、不阻塞计划。**
+12. **离线导入导出**：`.yanlu` 文件格式是否在 M3.3b 之前实现（作为无网兜底，见 §3.7）。
 
 ## 8. Git 与版本控制
 
@@ -735,21 +875,31 @@ git push -u origin feat/map-engine
 - 2026-10-24 M2.3c：地图启动改为低缩放 + 行程 bbox 优先物化，剩余高缩放瓦片后台补齐；避免每次启动读取 6407 张瓦片。详见 [启动性能记录](m2/performance/README.md)。
 - 2026-10-26 UI：单页拆成行程总览 / 当天 / 同行三页，底部导航切换。
 - 2026-10-24 M2.2b：离线 POI 索引（重庆 16k 条）+ 搜索 + 加入行程；Web 验证通过。详见 [POI 搜索记录](m2/poi-search/README.md)。
+- 2026-10-26 M2.4 多日行程：多天切换、每日汇总、按天城市、开始日期与复制前一天、每日全部路线、精确总里程与总停留；Web + Android 模拟器验证通过。详见 [M2.4 记录](m2/multiday/README.md)。
+- 2026-10-26 M2.5 交通与住宿完整化：交通班次（航班/高铁/大巴/轮渡，车站、发车/到达、提前到站）、住宿地址/订单/坐标/晚数、每日最早出发/最晚结束约束，时间轴联动；Web 逐项测试，APK 约 649 KB，tag `v1.5-m2.5`。详见 [M2.5 记录](m2/transport/README.md)。
+- 2026-10-26 M3.0 局域网传输 spike：原生 `LanSyncServer`（0.0.0.0:8766）+ 房间码 + Host/Guest 手动发布拉取；模拟器房主 + adb forward 浏览器 Guest 验证；tag `v1.6-m3.0`。详见 [M3.0 记录](m3/lan/README.md)。
+- 2026-10-27 M3.1 自动同步与在线成员：约 1.5 s 轮询 + 900 ms 防抖；`/hello` 心跳 + 12 s TTL；审查中修复 `/info` 房间码泄露、新房间沿用旧快照、POST 体逐字节读取与无上限；tag `v1.7-m3.1` / `v1.7.1-m3.1`。详见 [M3.1 记录](m3/lan/sync/README.md)。
+- 2026-10-27 M3.2a 通信可靠性：冲突检测（不再静默覆盖）、`/leave` 显式离开、请求 3.5 s 超时与轮询防重入；tag `v1.8-m3.2a`。详见 [M3.2a 记录](m3/lan/reliability/README.md)。
+- 2026-10-27 M3.2b 字段级三向合并：按 Day/Stop id 合并；同字段冲突展示路径并由用户选择；`baseVersion` 过期写入返回 409；Web Guest + 模拟器 Host 联调（非冲突合并 v2→v4，同字段冲突 v4→v5）；tag `v1.9-m3.2b`。详见 [M3.2b 记录](m3/lan/merge/README.md)。
+- 2026-10-27 M3.3a 写入幂等与历史：`clientId+seq` 幂等（重复返回 `duplicate`），并发写入一成一 409，`/history` 保留最近 30 次写入；tag `v2.0-m3.3a`。详见 [M3.3a 记录](m3/lan/delivery/README.md)。
+- 2026-10-27 双 Android 模拟器 App-to-App 验收：新建 `yanlu35b`，Host `yanlu35` 开房 `217323`，Guest 通过 `10.0.2.2:8766` + adb forward 加入；成员 2 人，双向标题同步成功；真机项明确延后。详见 [双模拟器记录](m3/lan/two-emulator/README.md)。
+- 2026-10-27 文档修订（本次）：本文档对照代码修订，见 §3.10 设计/实现对照表。
 
 ### 下一步
 
-第一轮三城验证、M1 单日编辑闭环和 M2.1 真实包下载已经完成。接下来按以下顺序推进：
+以下按优先级排列。**通信部分仍是最高优先级：在真机双机验收之前，不继续扩展与通信无关的 UI。**
 
-1. **M2.3c 包分发与扩城**：把主城全区/精细包扩展到武汉/贵阳；接 CDN/SHA-256/断点续传；z17 需要更新 Planetiler 或换切片器。
-2. **M2.2b 离线 POI 搜索**：已打包重庆/武汉/贵阳 OSM 索引，支持断网搜索并加入行程；地图点选已补。
-2. **M2.3 包分发**：OSS/COS/CDN、SHA-256、断点续传/暂停、配额淘汰、包版本更新；物理真机用局域网 IP/CDN 验证。
-3. **M2.4 多日行程**：行程列表、多天切换、每日汇总；再补真实预订/票据字段。
-4. **标定时间**：按城市/道路等级校准步行与打车速度；在 UI 明确“估算、不含实时路况”；重庆/贵阳加坡度/楼梯提示。
-5. **修正异常路线**：人工复核 `cq-walk-08`、`wh-taxi-07`、`gy-taxi-06`，补缺失连接/转向限制。
-6. **M3.0 局域网传输 spike**：已完成原生 Host 快照服务 + 房主/浏览器 Guest 发布/拉取；M3.1 自动同步/成员完成；M3.2a 增加冲突检测、显式离开、超时与房间保护；M3.2b 三向合并完成；M3.3a 增加幂等、并发拒绝、历史审计；下一步真实操作日志/双机验收。
-7. Android 第一版稳定后再移植 iOS。
+1. **局域网验收（真机延后）**：当前用两台 Android 模拟器 App-to-App + 浏览器 Guest 替代；仍需补同字段冲突、断网重连、房主退出、锁屏/切后台。两台真机同 Wi-Fi 作为延后项，不作为当前阻塞；如后续取得设备再补最终验收。
+2. **M3.3b 决策与实现**：先在 §7.2 决定“操作日志是否做、tombstone 是否做、token/加密是否做”（见 §3.4.2、§3.6、§3.10），再实现。若决定做操作日志：`clientId+seq` 已有，补 `rev`、tombstone、`delta(baseRev..rev)` 与 presence 编辑态。
+3. **安全最小集**：房间 token 提升到 ≥128 bit、`/snapshot` 限速、去掉 URL 中的 token（改 header）。
+4. **离线导入导出兜底**：`.yanlu` 文件导出/导入，覆盖“完全连不上”场景（§3.7）。
+5. **三城异常路线修正**：`cq-walk-08`、`wh-taxi-07`、`gy-taxi-06`；补齐离线 glyphs/POI 标签（§6 Phase 2 未完成项）。
+6. **包分发工程化**：静态 OSS/COS/CDN 接入、SHA-256 校验、断点续传/暂停、版本更新（§6 Phase 4 未完成项）；需先确定托管商（§7.2 第 6 项）。
+7. **时间标定**：按城市/道路等级校准步行与打车速度，UI 标注“估算、不含实时路况”，重庆/贵阳加坡度提示。
+8. **Android 构建方式复核**：是否保留手工构建壳（§7.2 第 9 项）；若需要 NSD 与前台服务，在此时决定引入 Capacitor 或在手工壳中补原生插件。
+9. Android 第一版稳定后再移植 iOS（Phase 6）。
 
-**当前阶段开始需要 JDK/Android SDK 做真机验证，但不在未确认前直接出可分发 APK。** 三城报告已给出“条件通过”，下一步重点是把异常路线和离线标签补到可演示质量。
+**不在未确认前直接出可分发 APK。** 当前 APK 仅为内部测试版本，签名为 debug 签名。
 
 ### 参考链接
 
