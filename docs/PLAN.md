@@ -748,6 +748,7 @@ travel_tool/
 | 锁屏/解锁 | **通过（双模拟器）**：Guest 锁屏、Host 改标题、解锁后不误报房主离开，自动同步 v2 |
 | 3 客户端 | **通过（Android Host + Android Guest + 浏览器 Guest）**：成员 3 人，浏览器修改同步到两端，Guest 离开后 2 人；3 客户端同字段并发一成一冲突 |
 | 弱网 | **通过（代理模拟）**：600 ms 双向延迟可同步；300 ms + 20% 连接丢弃最终同步 |
+| 长断网补发 | **通过（60 秒）**：Guest 断网期间改标题+地点类别，恢复后 Host 两处都收到 |
 | 成员昵称 | **通过**：Host“房主Momo” + 浏览器 Guest“阿宁”，成员列表显示 `房主Momo · 阿宁` |
 | 离线修改重连后可合并 | **通过（模拟断网）**：移除 adb forward 模拟断网，Guest 本地编辑后恢复连接，自动重试并同步 v2 |
 | 房主离开不丢本地数据 | **部分**：Guest 保留本地副本；房主关闭房间后 Guest 轮询失败但不清空数据（未显式提示“房主已离开”） |
@@ -902,6 +903,7 @@ git push -u origin feat/map-engine
 - 2026-10-27 成员昵称：新增“我的昵称”，用于 `/hello` 与成员列表；Host“房主Momo” + 浏览器 Guest“阿宁”验证通过。
 - 2026-10-27 3 客户端同字段并发：Android Guest 与浏览器 Guest 同时改标题，浏览器成功 v2，Android Guest 显示冲突并采用远端后收敛。详见 [三客户端记录](m3/lan/three-client/README.md)。
 - 2026-10-27 弱网：Mac TCP 代理注入 600 ms 延迟；再注入 300 ms + 20% 连接丢弃，Guest 修改最终到达 Host。详见 [弱网记录](m3/lan/weak-network/README.md)。
+- 2026-10-27 长断网：移除 adb forward 60 秒，Guest 改标题+地点类别，恢复后 Host 两处均收到。详见 [长断网记录](m3/lan/long-disconnect/README.md)。
 - 2026-10-27 tombstone：删除 Stop/Day 写入 `Trip.tombstones`，合并/加载时过滤；导入带墓碑的旧 Stop 验证被过滤。详见 [tombstone 记录](m3/lan/tombstones/README.md)。
 - 2026-10-27 变更历史 UI：同行页接入 `/history`，显示版本/clientId/baseVersion/时间；这是审计层，不是操作日志或 delta。详见 [变更历史记录](m3/lan/history/README.md)。
 - 2026-10-27 presence：`/hello` 增加 editing，成员列表显示当前天/地点；Host + 浏览器 Guest 验证通过。详见 [presence 记录](m3/lan/presence/README.md)。
@@ -911,7 +913,7 @@ git push -u origin feat/map-engine
 
 以下按优先级排列。**通信部分仍是最高优先级：在真机双机验收之前，不继续扩展与通信无关的 UI。**
 
-1. **局域网验收（真机延后）**：已过双模拟器、3 客户端、冲突、断网、后台、锁屏、弱网（延迟+连接丢弃）；仍需补长时间断网、3 个 Android 同时写、真实无线链路。两台真机同 Wi-Fi 作为延后项，不作为当前阻塞。
+1. **局域网验收（真机延后）**：已过双模拟器、3 客户端、冲突、断网、后台、锁屏、弱网、60 秒长断网；仍需补 3 个 Android 同时写、真实无线链路。两台真机/热点验收作为延后项，不作为当前阻塞。
 2. **M3.3b（部分完成）**：tombstone、变更历史审计、presence 基础版已加；完整操作日志 `rev/delta/op` 仍未做。
 3. **安全最小集（完成当前范围）**：token 约 130 bit、`X-Yanlu-Room` 头、失败限速；AES-GCM 明确不做，TLS/指纹作为未来可选项。
 4. **离线导入导出兜底（部分完成）**：JSON 导出/导入已可用；`.yanlu` 文件、合并式导入、二维码/系统分享仍未做。
