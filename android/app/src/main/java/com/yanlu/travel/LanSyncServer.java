@@ -42,12 +42,45 @@ public final class LanSyncServer {
     private volatile int version = 0;
     private final Map<String, Member> members = new ConcurrentHashMap<>();
     private final Map<String, Integer> clientSeq = new ConcurrentHashMap<>();
+    private final Map<String, FailureWindow> failures = new ConcurrentHashMap<>();
     private final Deque<String> history = new ArrayDeque<>();
 
     private static final class Member {
         final String name;
         final long seenAt;
         Member(String name, long seenAt) { this.name = name; this.seenAt = seenAt; }
+    }
+
+    private static final class FailureWindow {
+        int count;
+        long windowStart;
+        long blockedUntil;
+    }
+
+    private static final int MAX_FAILURES = 20;
+    private static final long FAILURE_WINDOW_MS = 60_000;
+    private static final long BLOCK_MS = 30_000;
+
+    private boolean isBlocked(String ip) {
+        FailureWindow window = failures.get(ip);
+        return window != null && window.blockedUntil > System.currentTimeMillis();
+    }
+
+    private void recordFailure(String ip) {
+        long now = System.currentTimeMillis();
+        FailureWindow window = failures.computeIfAbsent(ip, key -> new FailureWindow());
+        synchronized (window) {
+            if (now - window.windowStart > FAILURE_WINDOW_MS) {
+                window.windowStart = now;
+                window.count = 0;
+            }
+            window.count++;
+            if (window.count >= MAX_FAILURES) {
+                window.blockedUntil = now + BLOCK_MS;
+                window.count = 0;
+                window.windowStart = now;
+            }
+        }
     }
 
     public LanSyncServer(int port) {
@@ -188,7 +221,13 @@ public final class LanSyncServer {
                 }
             }
             String requestedRoom = headerRoom;
+            String clientIp = socket.getInetAddress().getHostAddress();
+            if (isBlocked(clientIp)) {
+                send(socket, 429, "{\"ok\":false,\"error\":\"too many attempts\"}");
+                return;
+            }
             if (requestedRoom == null || !requestedRoom.equals(room)) {
+                recordFailure(clientIp);
                 send(socket, 403, "{\"ok\":false,\"error\":\"room mismatch\"}");
                 return;
             }
@@ -292,7 +331,7 @@ public final class LanSyncServer {
 
     private void send(Socket socket, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        String reason = status == 200 ? "OK" : status == 409 ? "Conflict" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : status == 413 ? "Payload Too Large" : "Not Found";
+        String reason = status == 200 ? "OK" : status == 409 ? "Conflict" : status == 403 ? "Forbidden" : status == 400 ? "Bad Request" : status == 413 ? "Payload Too Large" : status == 429 ? "Too Many Requests" : "Not Found";
         String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
                 + "Content-Type: application/json; charset=utf-8\r\n"
                 + "Content-Length: " + bytes.length + "\r\n"
